@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修正依頼 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>勤怠修正依頼</h1>
+            <div class="user-info">
+                <span th:text="${username}">ユーザー名</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;" sec:authorize="hasAuthority('ADMIN')">管理画面へ</a>
+                <a th:href="@{/attendance/history}" class="btn-secondary" style="margin-left: 10px;">履歴に戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="card">
+                <h2>現在の勤怠記録</h2>
+                <div class="info-group">
+                    <div class="info-item">
+                        <span class="info-label">出勤:</span>
+                        <span th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">退勤:</span>
+                        <span th:text="${attendance.checkOut != null ? #temporals.format(attendance.checkOut, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">休憩開始:</span>
+                        <span th:text="${attendance.breakStart != null ? #temporals.format(attendance.breakStart, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">休憩終了:</span>
+                        <span th:text="${attendance.breakEnd != null ? #temporals.format(attendance.breakEnd, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                    </div>
+                </div>
+                <div th:if="${leaveRecords != null and !leaveRecords.isEmpty()}" style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 10px;">中抜け記録</h3>
+                    <div th:each="leaveRecord, iterStat : ${leaveRecords}" style="margin-bottom: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px;">
+                        <div class="info-item">
+                            <span class="info-label">中抜け開始:</span>
+                            <span th:text="${leaveRecord.leaveStart != null ? #temporals.format(leaveRecord.leaveStart, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">中抜け終了:</span>
+                            <span th:text="${leaveRecord.leaveEnd != null ? #temporals.format(leaveRecord.leaveEnd, 'yyyy-MM-dd HH:mm') : '未打刻'}"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">扱い:</span>
+                            <span th:text="${leaveRecord.leaveType == 'DEDUCTION' ? '控除' : (leaveRecord.leaveType == 'PAID_LEAVE' ? '有給' : '未設定')}"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>修正依頼フォーム</h2>
+                <form th:action="@{/attendance/fix-request}" method="post">
+                    <input type="hidden" name="attendanceId" th:value="${attendance.id}">
+
+                    <div class="form-group">
+                        <label for="requestType">修正項目</label>
+                        <select id="requestType" name="requestType" required>
+                            <option value="">選択してください</option>
+                            <option value="CHECK_IN">出勤時刻</option>
+                            <option value="CHECK_OUT">退勤時刻</option>
+                            <option value="BREAK_START">休憩開始時刻</option>
+                            <option value="BREAK_END">休憩終了時刻</option>
+                            <option value="LEAVE_START">中抜け開始時刻</option>
+                            <option value="LEAVE_END">中抜け終了時刻</option>
+                            <option value="LEAVE_TYPE">中抜けの扱い</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="leaveRecordGroup" style="display: none;">
+                        <label for="leaveRecordId">対象の中抜け</label>
+                        <select id="leaveRecordId" name="leaveRecordId">
+                            <option value="">選択してください</option>
+                            <option th:each="leaveRecord : ${leaveRecords}" 
+                                    th:value="${leaveRecord.id}"
+                                    th:text="${#temporals.format(leaveRecord.leaveStart, 'yyyy-MM-dd HH:mm') + ' - ' + (leaveRecord.leaveEnd != null ? #temporals.format(leaveRecord.leaveEnd, 'HH:mm') : '未終了')}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="newValueGroup">
+                        <label for="newValue">修正後の時刻</label>
+                        <input type="datetime-local" id="newValue" name="newValue"
+                               min="2000-01-01T00:00" max="2099-12-31T23:59">
+                    </div>
+
+                    <div class="form-group" id="newLeaveTypeGroup" style="display: none;">
+                        <label for="newLeaveType">修正後の扱い</label>
+                        <select id="newLeaveType" name="newLeaveType">
+                            <option value="">選択してください</option>
+                            <option value="DEDUCTION">控除</option>
+                            <option value="PAID_LEAVE">有給</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reason">理由</label>
+                        <textarea id="reason" name="reason" rows="4" required placeholder="修正が必要な理由を入力してください"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary">修正依頼を送信</button>
+                </form>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const requestTypeSelect = document.getElementById('requestType');
+        const leaveRecordGroup = document.getElementById('leaveRecordGroup');
+        const newValueGroup = document.getElementById('newValueGroup');
+        const newLeaveTypeGroup = document.getElementById('newLeaveTypeGroup');
+        const newValueInput = document.getElementById('newValue');
+        const leaveRecordIdSelect = document.getElementById('leaveRecordId');
+        const newLeaveTypeSelect = document.getElementById('newLeaveType');
+
+        // 修正項目の変更に応じて表示を切り替え
+        requestTypeSelect.addEventListener('change', function() {
+            const value = this.value;
+            
+            // 中抜け関連の場合は中抜け選択を表示
+            if (value === 'LEAVE_START' || value === 'LEAVE_END' || value === 'LEAVE_TYPE') {
+                leaveRecordGroup.style.display = 'block';
+                leaveRecordIdSelect.required = true;
+            } else {
+                leaveRecordGroup.style.display = 'none';
+                leaveRecordIdSelect.required = false;
+                leaveRecordIdSelect.value = '';
+            }
+
+            // 中抜けの扱いの変更の場合は扱い選択を表示
+            if (value === 'LEAVE_TYPE') {
+                newValueGroup.style.display = 'none';
+                newValueInput.required = false;
+                newValueInput.value = '';
+                newLeaveTypeGroup.style.display = 'block';
+                newLeaveTypeSelect.required = true;
+            } else if (value === 'LEAVE_START' || value === 'LEAVE_END') {
+                newValueGroup.style.display = 'block';
+                newValueInput.required = true;
+                newLeaveTypeGroup.style.display = 'none';
+                newLeaveTypeSelect.required = false;
+                newLeaveTypeSelect.value = '';
+            } else {
+                newValueGroup.style.display = 'block';
+                newValueInput.required = true;
+                newLeaveTypeGroup.style.display = 'none';
+                newLeaveTypeSelect.required = false;
+                newLeaveTypeSelect.value = '';
+            }
+        });
+
+        // 日付入力のバリデーション
+        newValueInput.addEventListener('input', function(e) {
+            const value = e.target.value;
+            if (value) {
+                const year = parseInt(value.substring(0, 4));
+                if (year < 2000 || year > 2099) {
+                    e.target.setCustomValidity('年は2000年から2099年の範囲で入力してください');
+                } else {
+                    e.target.setCustomValidity('');
+                }
+            }
+        });
+
+        // フォーム送信時のバリデーション
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const requestType = requestTypeSelect.value;
+            
+            // 時刻の修正依頼の場合
+            if (requestType !== 'LEAVE_TYPE' && newValueInput.value) {
+                const year = parseInt(newValueInput.value.substring(0, 4));
+                if (year < 2000 || year > 2099) {
+                    e.preventDefault();
+                    alert('年は2000年から2099年の範囲で入力してください');
+                    return false;
+                }
+            }
+
+            // 中抜け関連の場合は中抜け選択が必須
+            if ((requestType === 'LEAVE_START' || requestType === 'LEAVE_END' || requestType === 'LEAVE_TYPE') && !leaveRecordIdSelect.value) {
+                e.preventDefault();
+                alert('対象の中抜けを選択してください');
+                return false;
+            }
+
+            // 中抜けの扱いの変更の場合は扱い選択が必須
+            if (requestType === 'LEAVE_TYPE' && !newLeaveTypeSelect.value) {
+                e.preventDefault();
+                alert('修正後の扱いを選択してください');
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

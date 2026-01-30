@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データエクスポート - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .export-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .export-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .export-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        .form-group select,
+        .form-group input[type="date"],
+        .form-group input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .searchable-select {
+            position: relative;
+        }
+        .searchable-select input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .searchable-select .dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .searchable-select .dropdown.show {
+            display: block;
+        }
+        .searchable-select .dropdown-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .searchable-select .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+        .searchable-select .dropdown-item.selected {
+            background-color: #e3f2fd;
+            font-weight: 600;
+        }
+        .searchable-select .selected-value {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .searchable-select .selected-value::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        .searchable-select input[type="hidden"] {
+            display: none;
+        }
+        .export-button {
+            padding: 10px 25px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .export-button:hover {
+            background-color: #229954;
+        }
+        .info-text {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #1976d2;
+        }
+        .year-month-selector {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            margin-top: 10px;
+        }
+        .year-month-selector.expanded {
+            display: flex;
+        }
+        .year-month-selector-content {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .toggle-year-month-btn {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            margin-top: 5px;
+        }
+        .toggle-year-month-btn:hover {
+            background-color: #2980b9;
+        }
+        .year-selector, .month-selector {
+            flex: 1;
+        }
+        .year-selector h4, .month-selector h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+        }
+        .year-grid, .month-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+        .year-item, .month-item {
+            padding: 8px 12px;
+            text-align: center;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .year-item:hover, .month-item:hover {
+            background-color: #e9ecef;
+            border-color: #3498db;
+        }
+        .year-item.selected, .month-item.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+            font-weight: 600;
+        }
+        .year-item.disabled, .month-item.disabled {
+            background-color: #e9ecef;
+            color: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .day-selector {
+            margin-top: 15px;
+        }
+        .day-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .day-item {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        .day-item:hover:not(.disabled) {
+            background-color: #e9ecef;
+            border-color: #3498db;
+        }
+        .day-item.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+            font-weight: 600;
+        }
+        .day-item.disabled {
+            background-color: #e9ecef;
+            color: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .day-item.other-month {
+            color: #adb5bd;
+        }
+        .year-month-display {
+            padding: 10px 15px;
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1976d2;
+            min-width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>データエクスポート</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="dashboard-content">
+            <!-- 日別勤怠エクスポート -->
+            <section class="export-section card">
+                <h3>日別勤怠エクスポート</h3>
+                <form class="export-form" method="get" th:action="@{/export/daily}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dailyUserId">ユーザー:</label>
+                            <div class="searchable-select" id="dailyUserSelect">
+                                <input type="hidden" name="userId" id="dailyUserId" required>
+                                <div class="selected-value" id="dailyUserDisplay">選択してください</div>
+                                <div class="dropdown" id="dailyUserDropdown">
+                                    <div class="dropdown-item" data-value="" data-text="選択してください">選択してください</div>
+                                    <div th:each="user : ${users}" 
+                                         class="dropdown-item" 
+                                         th:data-value="${user.id}" 
+                                         th:data-text="${user.username}"
+                                         th:text="${user.username}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>年月日選択:</label>
+                            <div class="year-month-display" id="dailyYearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${currentYear} + '年' + ${currentMonth} + '月' + ${#temporals.day(today)} + '日'">2024年1月1日</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleDailyYearMonthBtn">
+                                年月日を変更
+                            </button>
+                            <div class="year-month-selector" id="dailyYearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="dailyYearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == currentYear ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="dailyMonthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == currentMonth} ? 'selected' : ''"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="day-selector">
+                                    <h4>日</h4>
+                                    <div class="day-grid" id="dailyDayGrid"></div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="dailyYear" th:value="${currentYear}">
+                            <input type="hidden" id="dailyMonth" th:value="${currentMonth}">
+                            <input type="hidden" id="dailyDay" th:value="${#temporals.day(today)}">
+                            <input type="hidden" id="dailyDate" name="date" th:value="${#temporals.format(today, 'yyyy-MM-dd')}" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="export-button">エクスポート</button>
+                        </div>
+                    </div>
+                </form>
+                <div class="info-text">
+                    <strong>出力内容:</strong> 日付、出勤、退勤、休憩時間、実働時間、残業時間、備考
+                </div>
+            </section>
+
+            <!-- 月次集計エクスポート -->
+            <section class="export-section card">
+                <h3>月次集計エクスポート</h3>
+                <form class="export-form" method="get" th:action="@{/export/monthly}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="monthlyUserId">ユーザー:</label>
+                            <div class="searchable-select" id="monthlyUserSelect">
+                                <input type="hidden" name="userId" id="monthlyUserId" required>
+                                <div class="selected-value" id="monthlyUserDisplay">選択してください</div>
+                                <div class="dropdown" id="monthlyUserDropdown">
+                                    <div class="dropdown-item" data-value="" data-text="選択してください">選択してください</div>
+                                    <div th:each="user : ${users}" 
+                                         class="dropdown-item" 
+                                         th:data-value="${user.id}" 
+                                         th:data-text="${user.username}"
+                                         th:text="${user.username}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>年月選択:</label>
+                            <div class="year-month-display" id="yearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${currentYear} + '年' + ${currentMonth} + '月'">2024年1月</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleYearMonthBtn">
+                                年月を変更
+                            </button>
+                            <div class="year-month-selector" id="yearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="yearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == currentYear ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="monthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == currentMonth ? 'selected' : ''}"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="monthlyYear" name="year" th:value="${currentYear}" required>
+                            <input type="hidden" id="monthlyMonth" name="month" th:value="${currentMonth}" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="export-button"> エクスポート</button>
+                        </div>
+                    </div>
+                </form>
+                <div class="info-text">
+                    <strong>出力内容:</strong> ユーザー名、年月、勤務日数、総勤務時間、総休憩時間、総残業時間
+                </div>
+            </section>
+
+            <!-- 打刻ログエクスポート -->
+            <section class="export-section card">
+                <h3>打刻ログエクスポート（証跡用）</h3>
+                <form class="export-form" method="get" th:action="@{/export/log}">
+                    <div class="form-row">
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>開始年月:</label>
+                            <div class="year-month-display" id="logStartYearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${#temporals.year(oneMonthAgo)} + '年' + ${#temporals.month(oneMonthAgo)} + '月'">2024年1月</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleLogStartYearMonthBtn">
+                                開始年月を変更
+                            </button>
+                            <div class="year-month-selector" id="logStartYearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="logStartYearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 class="year-item"
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == #temporals.year(oneMonthAgo) ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="logStartMonthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == #temporals.month(oneMonthAgo) ? 'selected' : ''}"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="logStartYear" th:value="${#temporals.year(oneMonthAgo)}">
+                            <input type="hidden" id="logStartMonth" th:value="${#temporals.month(oneMonthAgo)}">
+                            <input type="hidden" id="logStartDate" name="startDate" th:value="${#temporals.format(oneMonthAgo, 'yyyy-MM-dd')}" required>
+                        </div>
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>終了年月:</label>
+                            <div class="year-month-display" id="logEndYearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${currentYear} + '年' + ${currentMonth} + '月'">2024年1月</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleLogEndYearMonthBtn">
+                                終了年月を変更
+                            </button>
+                            <div class="year-month-selector" id="logEndYearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="logEndYearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == currentYear ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="logEndMonthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == currentMonth ? 'selected' : ''}"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="logEndYear" th:value="${currentYear}">
+                            <input type="hidden" id="logEndMonth" th:value="${currentMonth}">
+                            <input type="hidden" id="logEndDate" name="endDate" th:value="${#temporals.format(today, 'yyyy-MM-dd')}" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="export-button">エクスポート</button>
+                        </div>
+                    </div>
+                </form>
+                <div class="info-text">
+                    <strong>出力内容:</strong> すべての打刻操作（出勤、退勤、休憩開始、休憩終了、修正依頼、承認/却下）を時系列で記録<br>
+                    <strong>注意:</strong> 改ざん防止のため、すべての操作が証跡として記録されます
+                </div>
+            </section>
+
+            <!-- 説明セクション -->
+            <section class="card">
+                <h2>📖 エクスポート機能について</h2>
+                <div style="padding: 15px;">
+                    <h3 style="margin-top: 0;">各エクスポート形式の特徴</h3>
+                    <ul style="line-height: 1.8;">
+                        <li><strong>日別勤怠:</strong> 特定のユーザーの1日分の詳細な勤怠データを出力します。給与計算の基礎データとして使用できます。</li>
+                        <li><strong>月次集計:</strong> 特定のユーザーの1か月分の勤怠データを集計して出力します。給与計算に必要な総勤務時間、残業時間などを確認できます。</li>
+                        <li><strong>打刻ログ:</strong> すべての打刻操作を時系列で記録した証跡データです。監査やトラブルシューティングに使用できます。</li>
+                    </ul>
+                    <p style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <strong>⚠️ 注意:</strong> すべてのファイルはXLSX形式で出力されます。Excelで開いて確認・編集が可能です。
+                    </p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 検索可能なセレクトボックスの初期化
+        function initSearchableSelect(selectId, displayId, dropdownId, hiddenInputId) {
+            const selectContainer = document.getElementById(selectId);
+            const display = document.getElementById(displayId);
+            const dropdown = document.getElementById(dropdownId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const items = dropdown.querySelectorAll('.dropdown-item');
+            
+            // 検索用のinput要素を作成
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.placeholder = 'ユーザー名で検索...';
+            searchInput.style.cssText = 'width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px 4px 0 0; font-size: 14px; box-sizing: border-box;';
+            dropdown.insertBefore(searchInput, dropdown.firstChild);
+            
+            // 検索機能
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                items.forEach(item => {
+                    const text = item.getAttribute('data-text') || item.textContent;
+                    if (text.toLowerCase().includes(searchTerm)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+            
+            // ドロップダウンの表示/非表示
+            display.addEventListener('click', function(e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('show');
+                if (dropdown.classList.contains('show')) {
+                    searchInput.focus();
+                }
+            });
+            
+            // アイテム選択
+            items.forEach(item => {
+                item.addEventListener('click', function() {
+                    const value = this.getAttribute('data-value');
+                    const text = this.getAttribute('data-text') || this.textContent;
+                    
+                    hiddenInput.value = value;
+                    display.textContent = text || '選択してください';
+                    
+                    // 選択状態を更新
+                    items.forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    dropdown.classList.remove('show');
+                    searchInput.value = '';
+                    // 検索結果をリセット
+                    items.forEach(i => i.style.display = '');
+                });
+            });
+            
+            // 外側をクリックしたら閉じる
+            document.addEventListener('click', function(e) {
+                if (!selectContainer.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+        }
+        
+        // 現在の年月を取得（グローバル変数として定義）
+        let currentYear, currentMonth, currentDay;
+        
+        // ページ読み込み時に現在の年月を取得
+        document.addEventListener('DOMContentLoaded', function() {
+            // 月次集計のhidden inputから現在の年月を取得
+            const monthlyYearInput = document.getElementById('monthlyYear');
+            const monthlyMonthInput = document.getElementById('monthlyMonth');
+            if (monthlyYearInput && monthlyMonthInput) {
+                currentYear = parseInt(monthlyYearInput.value);
+                currentMonth = parseInt(monthlyMonthInput.value);
+            } else {
+                // フォールバック: 現在の日付から取得
+                const now = new Date();
+                currentYear = now.getFullYear();
+                currentMonth = now.getMonth() + 1;
+            }
+            currentDay = new Date().getDate();
+            
+            // 初期化を実行
+            initAllSelectors();
+        });
+        
+        // 未来の年月を無効化する関数
+        function disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth) {
+            if (!yearGrid || !monthGrid) return;
+            
+            yearGrid.querySelectorAll('.year-item').forEach(item => {
+                const year = parseInt(item.getAttribute('data-year'));
+                if (year > currentYear) {
+                    item.classList.add('disabled');
+                    item.style.pointerEvents = 'none';
+                } else {
+                    item.classList.remove('disabled');
+                    item.style.pointerEvents = 'auto';
+                }
+            });
+            
+            monthGrid.querySelectorAll('.month-item').forEach(item => {
+                const month = parseInt(item.getAttribute('data-month'));
+                if (selectedYear === currentYear && month > currentMonth) {
+                    item.classList.add('disabled');
+                    item.style.pointerEvents = 'none';
+                } else {
+                    item.classList.remove('disabled');
+                    item.style.pointerEvents = 'auto';
+                }
+            });
+        }
+        
+        // 年月選択UIの初期化（月次集計用）
+        function initYearMonthSelector() {
+            const yearGrid = document.getElementById('yearGrid');
+            const monthGrid = document.getElementById('monthGrid');
+            const yearMonthDisplay = document.getElementById('yearMonthDisplay');
+            const yearMonthSelector = document.getElementById('yearMonthSelector');
+            const toggleBtn = document.getElementById('toggleYearMonthBtn');
+            const yearInput = document.getElementById('monthlyYear');
+            const monthInput = document.getElementById('monthlyMonth');
+            
+            if (!yearGrid || !monthGrid || !yearMonthDisplay || !yearMonthSelector || !toggleBtn || !yearInput || !monthInput) {
+                console.error('月次集計年月選択の要素が見つかりません');
+                return;
+            }
+            
+            let selectedYear = parseInt(yearInput.value);
+            let selectedMonth = parseInt(monthInput.value);
+            let isExpanded = false;
+            
+            // 未来の年月を無効化
+            disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+            
+            // 展開/折りたたみボタン
+            toggleBtn.addEventListener('click', function() {
+                isExpanded = !isExpanded;
+                if (isExpanded) {
+                    yearMonthSelector.classList.add('expanded');
+                    toggleBtn.textContent = '閉じる';
+                } else {
+                    yearMonthSelector.classList.remove('expanded');
+                    toggleBtn.textContent = '年月を変更';
+                }
+            });
+            
+            // 年度選択
+            yearGrid.querySelectorAll('.year-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    
+                    // 選択状態を更新
+                    yearGrid.querySelectorAll('.year-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    selectedYear = parseInt(this.getAttribute('data-year'));
+                    yearInput.value = selectedYear;
+                    
+                    // 月の無効化状態を更新
+                    disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+                    
+                    updateYearMonthDisplay();
+                });
+            });
+            
+            // 月選択
+            monthGrid.querySelectorAll('.month-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    
+                    // 選択状態を更新
+                    monthGrid.querySelectorAll('.month-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    selectedMonth = parseInt(this.getAttribute('data-month'));
+                    monthInput.value = selectedMonth;
+                    updateYearMonthDisplay();
+                });
+            });
+            
+            // 表示を更新
+            function updateYearMonthDisplay() {
+                yearMonthDisplay.innerHTML = '<span>' + selectedYear + '年' + selectedMonth + '月</span>';
+            }
+        }
+        
+        // 日別勤怠エクスポートの年月日選択UIの初期化
+        function initDailyYearMonthDaySelector() {
+            const yearGrid = document.getElementById('dailyYearGrid');
+            const monthGrid = document.getElementById('dailyMonthGrid');
+            const dayGrid = document.getElementById('dailyDayGrid');
+            const yearMonthDisplay = document.getElementById('dailyYearMonthDisplay');
+            const yearMonthSelector = document.getElementById('dailyYearMonthSelector');
+            const toggleBtn = document.getElementById('toggleDailyYearMonthBtn');
+            const yearInput = document.getElementById('dailyYear');
+            const monthInput = document.getElementById('dailyMonth');
+            const dayInput = document.getElementById('dailyDay');
+            const dateInput = document.getElementById('dailyDate');
+            
+            if (!yearGrid || !monthGrid || !dayGrid || !yearMonthDisplay || !yearMonthSelector || !toggleBtn || !yearInput || !monthInput || !dayInput || !dateInput) {
+                console.error('日別勤怠年月日選択の要素が見つかりません');
+                return;
+            }
+            
+            let selectedYear = parseInt(yearInput.value);
+            let selectedMonth = parseInt(monthInput.value);
+            let selectedDay = parseInt(dayInput.value);
+            let isExpanded = false;
+            
+            // 日付グリッドを生成
+            function updateDayGrid() {
+                dayGrid.innerHTML = '';
+                const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                const firstDay = new Date(selectedYear, selectedMonth - 1, 1).getDay();
+                
+                // 週のヘッダー
+                const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+                weekDays.forEach(day => {
+                    const header = document.createElement('div');
+                    header.textContent = day;
+                    header.style.fontWeight = '600';
+                    header.style.textAlign = 'center';
+                    header.style.padding = '5px';
+                    dayGrid.appendChild(header);
+                });
+                
+                // 空白を追加
+                for (let i = 0; i < firstDay; i++) {
+                    const empty = document.createElement('div');
+                    dayGrid.appendChild(empty);
+                }
+                
+                // 日を追加
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayItem = document.createElement('div');
+                    dayItem.className = 'day-item';
+                    dayItem.textContent = day;
+                    dayItem.setAttribute('data-day', day);
+                    
+                    // 未来の日を無効化
+                    if (selectedYear === currentYear && selectedMonth === currentMonth && day > currentDay) {
+                        dayItem.classList.add('disabled');
+                        dayItem.style.pointerEvents = 'none';
+                    }
+                    
+                    if (day === selectedDay) {
+                        dayItem.classList.add('selected');
+                    }
+                    
+                    dayItem.addEventListener('click', function() {
+                        if (this.classList.contains('disabled')) return;
+                        dayGrid.querySelectorAll('.day-item').forEach(i => i.classList.remove('selected'));
+                        this.classList.add('selected');
+                        selectedDay = parseInt(this.getAttribute('data-day'));
+                        dayInput.value = selectedDay;
+                        updateDateInput();
+                        updateYearMonthDayDisplay();
+                    });
+                    
+                    dayGrid.appendChild(dayItem);
+                }
+            }
+            
+            // 未来の年月を無効化
+            disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+            updateDayGrid();
+            
+            // 展開/折りたたみボタン
+            toggleBtn.addEventListener('click', function() {
+                isExpanded = !isExpanded;
+                if (isExpanded) {
+                    yearMonthSelector.classList.add('expanded');
+                    toggleBtn.textContent = '閉じる';
+                } else {
+                    yearMonthSelector.classList.remove('expanded');
+                    toggleBtn.textContent = '年月日を変更';
+                }
+            });
+            
+            // 年度選択
+            yearGrid.querySelectorAll('.year-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    yearGrid.querySelectorAll('.year-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedYear = parseInt(this.getAttribute('data-year'));
+                    yearInput.value = selectedYear;
+                    disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+                    updateDayGrid();
+                    updateYearMonthDayDisplay();
+                });
+            });
+            
+            // 月選択
+            monthGrid.querySelectorAll('.month-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    monthGrid.querySelectorAll('.month-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedMonth = parseInt(this.getAttribute('data-month'));
+                    monthInput.value = selectedMonth;
+                    // 選択された日が新しい月の日数より大きい場合は調整
+                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                    if (selectedDay > daysInMonth) {
+                        selectedDay = daysInMonth;
+                        dayInput.value = selectedDay;
+                    }
+                    updateDayGrid();
+                    updateYearMonthDayDisplay();
+                });
+            });
+            
+            function updateDateInput() {
+                const dateStr = selectedYear + '-' + 
+                    String(selectedMonth).padStart(2, '0') + '-' + 
+                    String(selectedDay).padStart(2, '0');
+                dateInput.value = dateStr;
+            }
+            
+            function updateYearMonthDayDisplay() {
+                yearMonthDisplay.innerHTML = '<span>' + selectedYear + '年' + selectedMonth + '月' + selectedDay + '日</span>';
+            }
+        }
+        
+        // 打刻ログエクスポートの年月選択UIの初期化
+        function initLogYearMonthSelector(prefix, yearGridId, monthGridId, displayId, selectorId, toggleBtnId, yearInputId, monthInputId, dateInputId, defaultYear, defaultMonth) {
+            const yearGrid = document.getElementById(yearGridId);
+            const monthGrid = document.getElementById(monthGridId);
+            const yearMonthDisplay = document.getElementById(displayId);
+            const yearMonthSelector = document.getElementById(selectorId);
+            const toggleBtn = document.getElementById(toggleBtnId);
+            const yearInput = document.getElementById(yearInputId);
+            const monthInput = document.getElementById(monthInputId);
+            const dateInput = document.getElementById(dateInputId);
+            
+            if (!yearGrid || !monthGrid || !yearMonthDisplay || !yearMonthSelector || !toggleBtn || !yearInput || !monthInput || !dateInput) {
+                console.error('打刻ログ年月選択の要素が見つかりません:', prefix);
+                return;
+            }
+            
+            let selectedYear = defaultYear;
+            let selectedMonth = defaultMonth;
+            let isExpanded = false;
+            
+            // 未来の年月を無効化
+            disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+            
+            // 展開/折りたたみボタン
+            toggleBtn.addEventListener('click', function() {
+                isExpanded = !isExpanded;
+                if (isExpanded) {
+                    yearMonthSelector.classList.add('expanded');
+                    toggleBtn.textContent = '閉じる';
+                } else {
+                    yearMonthSelector.classList.remove('expanded');
+                    toggleBtn.textContent = (prefix === 'logStart' ? '開始' : '終了') + '年月を変更';
+                }
+            });
+            
+            // 年度選択
+            yearGrid.querySelectorAll('.year-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    yearGrid.querySelectorAll('.year-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedYear = parseInt(this.getAttribute('data-year'));
+                    yearInput.value = selectedYear;
+                    disableFutureYearMonth(yearGrid, monthGrid, selectedYear, selectedMonth);
+                    updateDateInput();
+                    updateYearMonthDisplay();
+                });
+            });
+            
+            // 月選択
+            monthGrid.querySelectorAll('.month-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    monthGrid.querySelectorAll('.month-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedMonth = parseInt(this.getAttribute('data-month'));
+                    monthInput.value = selectedMonth;
+                    updateDateInput();
+                    updateYearMonthDisplay();
+                });
+            });
+            
+            function updateDateInput() {
+                // 開始日は月初、終了日は月末
+                let dateStr;
+                if (prefix === 'logStart') {
+                    dateStr = selectedYear + '-' + String(selectedMonth).padStart(2, '0') + '-01';
+                } else {
+                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                    dateStr = selectedYear + '-' + String(selectedMonth).padStart(2, '0') + '-' + String(daysInMonth).padStart(2, '0');
+                }
+                dateInput.value = dateStr;
+            }
+            
+            function updateYearMonthDisplay() {
+                yearMonthDisplay.innerHTML = '<span>' + selectedYear + '年' + selectedMonth + '月</span>';
+            }
+        }
+        
+        // すべてのセレクターを初期化
+        function initAllSelectors() {
+            try {
+                initSearchableSelect('dailyUserSelect', 'dailyUserDisplay', 'dailyUserDropdown', 'dailyUserId');
+            } catch (e) {
+                console.error('日別勤怠ユーザー選択の初期化エラー:', e);
+            }
+            
+            try {
+                initSearchableSelect('monthlyUserSelect', 'monthlyUserDisplay', 'monthlyUserDropdown', 'monthlyUserId');
+            } catch (e) {
+                console.error('月次集計ユーザー選択の初期化エラー:', e);
+            }
+            
+            try {
+                initYearMonthSelector();
+            } catch (e) {
+                console.error('月次集計年月選択の初期化エラー:', e);
+            }
+            
+            try {
+                initDailyYearMonthDaySelector();
+            } catch (e) {
+                console.error('日別勤怠年月日選択の初期化エラー:', e);
+            }
+            
+            try {
+                // 打刻ログエクスポートの開始年月
+                const logStartYearInput = document.getElementById('logStartYear');
+                const logStartMonthInput = document.getElementById('logStartMonth');
+                if (logStartYearInput && logStartMonthInput) {
+                    const logStartYear = parseInt(logStartYearInput.value);
+                    const logStartMonth = parseInt(logStartMonthInput.value);
+                    initLogYearMonthSelector('logStart', 'logStartYearGrid', 'logStartMonthGrid', 
+                        'logStartYearMonthDisplay', 'logStartYearMonthSelector', 'toggleLogStartYearMonthBtn',
+                        'logStartYear', 'logStartMonth', 'logStartDate', logStartYear, logStartMonth);
+                }
+            } catch (e) {
+                console.error('打刻ログ開始年月選択の初期化エラー:', e);
+            }
+            
+            try {
+                // 打刻ログエクスポートの終了年月
+                const logEndYearInput = document.getElementById('logEndYear');
+                const logEndMonthInput = document.getElementById('logEndMonth');
+                if (logEndYearInput && logEndMonthInput) {
+                    const logEndYear = parseInt(logEndYearInput.value);
+                    const logEndMonth = parseInt(logEndMonthInput.value);
+                    initLogYearMonthSelector('logEnd', 'logEndYearGrid', 'logEndMonthGrid', 
+                        'logEndYearMonthDisplay', 'logEndYearMonthSelector', 'toggleLogEndYearMonthBtn',
+                        'logEndYear', 'logEndMonth', 'logEndDate', logEndYear, logEndMonth);
+                }
+            } catch (e) {
+                console.error('打刻ログ終了年月選択の初期化エラー:', e);
+            }
+        }
+    </script>
+</body>
+</html>

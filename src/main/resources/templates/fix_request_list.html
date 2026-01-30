@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修正依頼一覧 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>修正依頼一覧</h1>
+            <div class="user-info">
+                <span th:text="${username}">ユーザー名</span>
+                <span sec:authorize="hasAuthority('ADMIN')">
+                    <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                </span>
+                <span sec:authorize="hasAuthority('EMPLOYEE')">
+                    <a th:href="@{/employee/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                </span>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">処理が完了しました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="content">
+            <section class="card">
+                <h2>依頼一覧</h2>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>勤怠ID</th>
+                                <th>修正項目</th>
+                                <th>新しい値</th>
+                                <th>理由</th>
+                                <th>ステータス</th>
+                                <th>申請日時</th>
+                                <th sec:authorize="hasAuthority('ADMIN')">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="request : ${fixRequests}">
+                                <td th:text="${request.id}"></td>
+                                <td th:text="${request.attendanceId}"></td>
+                                <td th:text="${request.requestType}"></td>
+                                <td th:text="${#temporals.format(request.newValue, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td th:text="${request.reason}"></td>
+                                <td>
+                                    <span th:class="${request.status == 'PENDING' ? 'status-pending' : (request.status == 'APPROVED' ? 'status-approved' : 'status-rejected')}"
+                                          th:text="${request.statusInJapanese}"></span>
+                                </td>
+                                <td th:text="${#temporals.format(request.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td sec:authorize="hasAuthority('ADMIN')">
+                                    <div th:if="${request.status == 'PENDING'}">
+                                        <form th:action="@{/admin/fix-request/approve/{id}(id=${request.id})}" method="post" style="display: inline;">
+                                            <button type="submit" class="btn-approve">承認</button>
+                                        </form>
+                                        <form th:action="@{/admin/fix-request/reject/{id}(id=${request.id})}" method="post" style="display: inline;">
+                                            <button type="submit" class="btn-reject">却下</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

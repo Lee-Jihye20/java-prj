@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠履歴 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>勤怠履歴</h1>
+            <div class="user-info">
+                <span th:text="${username}">ユーザー名</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;" sec:authorize="hasAuthority('ADMIN')">管理画面へ</a>
+                <a th:href="@{/employee/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">処理が完了しました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="content">
+            <section class="card">
+                <h2>履歴一覧</h2>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>出勤</th>
+                                <th>退勤</th>
+                                <th>休憩開始</th>
+                                <th>休憩終了</th>
+                                <th>中抜け開始</th>
+                                <th>中抜け終了</th>
+                                <th>中抜けの扱い</th>
+                                <th>ステータス</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="attendance : ${attendances}">
+                                <td th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'yyyy-MM-dd') : '-'}"></td>
+                                <td th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.checkOut != null ? #temporals.format(attendance.checkOut, 'HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.breakStart != null ? #temporals.format(attendance.breakStart, 'HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.breakEnd != null ? #temporals.format(attendance.breakEnd, 'HH:mm') : '-'}"></td>
+                                <td>
+                                    <span th:if="${leaveRecordsMap != null and leaveRecordsMap.containsKey(attendance.id) and !leaveRecordsMap.get(attendance.id).isEmpty()}">
+                                        <div th:each="leaveRecord : ${leaveRecordsMap.get(attendance.id)}" 
+                                             style="margin-bottom: 3px;">
+                                            <span th:text="${leaveRecord.leaveStart != null ? #temporals.format(leaveRecord.leaveStart, 'HH:mm') : '-'}"></span>
+                                        </div>
+                                    </span>
+                                    <span th:if="${leaveRecordsMap == null or !leaveRecordsMap.containsKey(attendance.id) or leaveRecordsMap.get(attendance.id).isEmpty()}">-</span>
+                                </td>
+                                <td>
+                                    <span th:if="${leaveRecordsMap != null and leaveRecordsMap.containsKey(attendance.id) and !leaveRecordsMap.get(attendance.id).isEmpty()}">
+                                        <div th:each="leaveRecord : ${leaveRecordsMap.get(attendance.id)}" 
+                                             style="margin-bottom: 3px;">
+                                            <span th:text="${leaveRecord.leaveEnd != null ? #temporals.format(leaveRecord.leaveEnd, 'HH:mm') : '-'}"></span>
+                                        </div>
+                                    </span>
+                                    <span th:if="${leaveRecordsMap == null or !leaveRecordsMap.containsKey(attendance.id) or leaveRecordsMap.get(attendance.id).isEmpty()}">-</span>
+                                </td>
+                                <td>
+                                    <span th:if="${leaveRecordsMap != null and leaveRecordsMap.containsKey(attendance.id) and !leaveRecordsMap.get(attendance.id).isEmpty()}">
+                                        <div th:each="leaveRecord : ${leaveRecordsMap.get(attendance.id)}" 
+                                             style="margin-bottom: 3px;">
+                                            <span th:text="${leaveRecord.leaveType == 'DEDUCTION' ? '控除' : (leaveRecord.leaveType == 'PAID_LEAVE' ? '有給' : '未設定')}"></span>
+                                        </div>
+                                    </span>
+                                    <span th:if="${leaveRecordsMap == null or !leaveRecordsMap.containsKey(attendance.id) or leaveRecordsMap.get(attendance.id).isEmpty()}">-</span>
+                                </td>
+                                <td th:text="${attendance.statusInJapanese}"></td>
+                                <td>
+                                    <a th:href="@{/attendance/fix-request/{id}(id=${attendance.id})}" class="btn-link">修正依頼</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

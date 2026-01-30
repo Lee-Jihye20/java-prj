@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社員一覧 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>社員一覧</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">処理が完了しました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="content">
+            <section class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">社員一覧</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <a th:href="@{/admin/roles}" class="btn-secondary">ロール管理</a>
+                        <a th:href="@{/admin/users/create}" class="btn-primary">新規社員アカウント作成</a>
+                    </div>
+                </div>
+                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <strong>企業コード:</strong> <span th:text="${companyCode}"></span>
+                    <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">
+                        新しく作成したアカウントでログインする際は、この企業コードが必要です。
+                    </p>
+                </div>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>ユーザー名</th>
+                                <th>ロール</th>
+                                <th>Slack User ID</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="user : ${users}">
+                                <td th:text="${user.id}"></td>
+                                <td th:text="${user.username}"></td>
+                                <td>
+                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                        <!-- 現在のロール表示 -->
+                                        <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">
+                                            <span th:if="${user.role == 'ADMIN'}" style="color: #ff6b6b; font-weight: bold;">管理者</span>
+                                            <span th:if="${user.role == 'EMPLOYEE'}" style="color: #4ecdc4;">従業員</span>
+                                            <span th:if="${user.roles != null and !user.roles.isEmpty()}" style="margin-left: 5px;">
+                                                (<span th:each="role, iterStat : ${user.roles}" 
+                                                      th:text="${role.name + (iterStat.last ? '' : ', ')}"></span>)
+                                            </span>
+                                        </div>
+                                        <!-- ロール変更ボタン -->
+                                        <button type="button" 
+                                                class="btn-secondary assign-role-btn" 
+                                                style="padding: 5px 10px; font-size: 0.85em;"
+                                                th:data-user-id="${user.id}"
+                                                th:data-username="${user.username}"
+                                                th:data-current-role="${user.role}">
+                                            <span th:if="${user.roles != null and !user.roles.isEmpty()}" 
+                                                  th:each="role, iterStat : ${user.roles}"
+                                                  th:attr="data-role-id=${role.id}"
+                                                  style="display: none;"></span>
+                                            ロール変更
+                                        </button>
+                                    </div>
+                                </td>
+                                <td th:text="${user.slackUserId != null ? user.slackUserId : '-'}"></td>
+                                <td>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                                        <a th:href="@{/admin/users/{uid}/calendar(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">カレンダー</a>
+                                        <button type="button" class="btn-secondary work-settings-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                th:data-user-id="${user.id}"
+                                                th:data-username="${user.username}"
+                                                th:data-work-type="${user.workType != null ? user.workType : 'FULLTIME'}"
+                                                th:data-start-time="${user.startTime != null ? #temporals.format(user.startTime, 'HH:mm') : '09:00'}"
+                                                th:data-core-time-start="${user.coreTimeStart != null ? #temporals.format(user.coreTimeStart, 'HH:mm') : '10:00'}"
+                                                th:data-core-time-end="${user.coreTimeEnd != null ? #temporals.format(user.coreTimeEnd, 'HH:mm') : '15:00'}">勤務設定</button>
+                                        <button type="button" class="btn-secondary export-daily-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                th:data-user-id="${user.id}">日別エクスポート</button>
+                                        <button type="button" class="btn-secondary export-monthly-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                th:data-user-id="${user.id}">月別エクスポート</button>
+                                        <a th:if="${user.role == 'ADMIN'}" th:href="@{/admin/users/{uid}/actions(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">📝 ログ</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // ロール変更ボタンのクリックイベント（イベント委譲を使用）
+        document.addEventListener('click', function(e) {
+            const button = e.target.closest('.assign-role-btn');
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const userId = button.getAttribute('data-user-id');
+                const username = button.getAttribute('data-username');
+                const currentRole = button.getAttribute('data-current-role');
+                
+                // ロールIDを取得（span要素から）
+                const roleIdSpans = button.querySelectorAll('span[data-role-id]');
+                const userRoleIds = Array.from(roleIdSpans).map(span => span.getAttribute('data-role-id'));
+                
+                showRoleAssignModal(userId, username, currentRole, userRoleIds);
+            }
+        });
+
+        function showRoleAssignModal(userId, username, currentRole, userRoleIds) {
+            const userIdInput = document.getElementById('roleAssignUserId');
+            const usernameElement = document.getElementById('roleAssignUsername');
+            const basicRoleSelect = document.getElementById('basicRole');
+            const form = document.getElementById('roleAssignForm');
+            const modal = document.getElementById('roleAssignModal');
+            
+            if (!userIdInput || !usernameElement || !form || !modal) {
+                console.error('Required elements not found for role assign modal');
+                return;
+            }
+            
+            userIdInput.value = userId;
+            usernameElement.textContent = username;
+            
+            // 基本ロールを設定
+            if (basicRoleSelect && currentRole) {
+                basicRoleSelect.value = currentRole;
+            }
+            
+            // フォームのactionを設定（基本ロールとカスタムロールの両方を処理）
+            form.action = '/admin/users/' + userId + '/roles';
+            
+            // ユーザーの現在のカスタムロールをチェック
+            const checkboxes = document.querySelectorAll('#roleAssignModal input[type="checkbox"].custom-role-checkbox');
+            checkboxes.forEach(function(cb) {
+                const roleId = cb.value;
+                cb.checked = userRoleIds && userRoleIds.includes(roleId);
+            });
+            
+            modal.style.display = 'block';
+        }
+
+        function closeRoleAssignModal() {
+            document.getElementById('roleAssignModal').style.display = 'none';
+        }
+
+        // ロール割り当てモーダル外をクリックで閉じる
+        const roleAssignModal = document.getElementById('roleAssignModal');
+        if (roleAssignModal) {
+            roleAssignModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeRoleAssignModal();
+                }
+            });
+        }
+
+        // 勤務形態ボタン（イベント委譲）
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.work-settings-btn');
+            if (btn) {
+                e.preventDefault();
+                const userId = btn.getAttribute('data-user-id');
+                const username = btn.getAttribute('data-username');
+                const workType = btn.getAttribute('data-work-type') || 'FULLTIME';
+                const startTime = btn.getAttribute('data-start-time') || '09:00';
+                const coreTimeStart = btn.getAttribute('data-core-time-start') || '10:00';
+                const coreTimeEnd = btn.getAttribute('data-core-time-end') || '15:00';
+                showWorkSettingsModal(userId, username, workType, startTime, coreTimeStart, coreTimeEnd);
+            }
+        });
+        function showWorkSettingsModal(userId, username, workType, startTime, coreTimeStart, coreTimeEnd) {
+            const modal = document.getElementById('workSettingsModal');
+            const userIdInput = document.getElementById('workSettingsUserId');
+            const usernameEl = document.getElementById('workSettingsUsername');
+            const workTypeSelect = document.getElementById('workSettingsWorkType');
+            const startTimeInput = document.getElementById('workSettingsStartTime');
+            const startTimeGroup = document.getElementById('workSettingsStartTimeGroup');
+            const coreTimeStartInput = document.getElementById('workSettingsCoreTimeStart');
+            const coreTimeEndInput = document.getElementById('workSettingsCoreTimeEnd');
+            const coreTimeGroup = document.getElementById('workSettingsCoreTimeGroup');
+            const form = document.getElementById('workSettingsForm');
+            if (!modal || !form) return;
+            userIdInput.value = userId;
+            usernameEl.textContent = username;
+            workTypeSelect.value = workType;
+            startTimeInput.value = startTime;
+            coreTimeStartInput.value = coreTimeStart;
+            coreTimeEndInput.value = coreTimeEnd;
+            form.action = '/admin/users/' + userId + '/work-settings';
+            startTimeGroup.style.display = workType === 'FULLTIME' ? 'block' : 'none';
+            coreTimeGroup.style.display = workType === 'FLEX' ? 'block' : 'none';
+            modal.style.display = 'block';
+        }
+        function closeWorkSettingsModal() {
+            document.getElementById('workSettingsModal').style.display = 'none';
+        }
+        const workTypeSelect = document.getElementById('workSettingsWorkType');
+        if (workTypeSelect) {
+            workTypeSelect.addEventListener('change', function() {
+                const v = this.value;
+                document.getElementById('workSettingsStartTimeGroup').style.display = v === 'FULLTIME' ? 'block' : 'none';
+                document.getElementById('workSettingsCoreTimeGroup').style.display = v === 'FLEX' ? 'block' : 'none';
+            });
+        }
+        const workSettingsModal = document.getElementById('workSettingsModal');
+        if (workSettingsModal) workSettingsModal.addEventListener('click', function(e) { if (e.target === this) closeWorkSettingsModal(); });
+
+        // 日別エクスポート
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.export-daily-btn');
+            if (btn) {
+                e.preventDefault();
+                const uidEl = document.getElementById('exportDailyUserId');
+                const modalEl = document.getElementById('exportDailyModal');
+                if (uidEl && modalEl) {
+                    uidEl.value = btn.getAttribute('data-user-id');
+                    modalEl.style.display = 'block';
+                }
+            }
+        });
+        function closeExportDailyModal() {
+            const m = document.getElementById('exportDailyModal');
+            if (m) m.style.display = 'none';
+        }
+        // 月別エクスポート
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.export-monthly-btn');
+            if (btn) {
+                e.preventDefault();
+                const uidEl = document.getElementById('exportMonthlyUserId');
+                const modalEl = document.getElementById('exportMonthlyModal');
+                if (uidEl && modalEl) {
+                    uidEl.value = btn.getAttribute('data-user-id');
+                    modalEl.style.display = 'block';
+                }
+            }
+        });
+        function closeExportMonthlyModal() {
+            const m = document.getElementById('exportMonthlyModal');
+            if (m) m.style.display = 'none';
+        }
+        // エクスポートフォーム送信（イベント委譲でスクリプト実行時点でDOMがなくても動作）
+        document.addEventListener('submit', function(e) {
+            if (e.target.id === 'exportDailyForm') {
+                e.preventDefault();
+                const uid = document.getElementById('exportDailyUserId');
+                const date = document.getElementById('exportDailyDate');
+                if (uid && date && date.value) {
+                    window.location.href = '/export/daily?userId=' + encodeURIComponent(uid.value) + '&date=' + encodeURIComponent(date.value);
+                    closeExportDailyModal();
+                }
+            }
+            if (e.target.id === 'exportMonthlyForm') {
+                e.preventDefault();
+                const uid = document.getElementById('exportMonthlyUserId');
+                const year = document.getElementById('exportMonthlyYear');
+                const month = document.getElementById('exportMonthlyMonth');
+                if (uid && year && month && year.value && month.value) {
+                    window.location.href = '/export/monthly?userId=' + encodeURIComponent(uid.value) + '&year=' + encodeURIComponent(year.value) + '&month=' + encodeURIComponent(month.value);
+                    closeExportMonthlyModal();
+                }
+            }
+        });
+        const exportDailyModal = document.getElementById('exportDailyModal');
+        if (exportDailyModal) exportDailyModal.addEventListener('click', function(e) { if (e.target === this) closeExportDailyModal(); });
+        const exportMonthlyModal = document.getElementById('exportMonthlyModal');
+        if (exportMonthlyModal) exportMonthlyModal.addEventListener('click', function(e) { if (e.target === this) closeExportMonthlyModal(); });
+    </script>
+
+    <!-- ロール変更モーダル -->
+    <div id="roleAssignModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 500px; max-width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">ロール変更</h2>
+            <p>ユーザー: <strong id="roleAssignUsername"></strong></p>
+            
+            <!-- ロール選択フォーム -->
+            <form id="roleAssignForm" method="post" style="display: flex; flex-direction: column; gap: 20px;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" id="roleAssignUserId" name="userId">
+                
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">基本ロール:</label>
+                    <select id="basicRole" name="role" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="EMPLOYEE">従業員</option>
+                        <option value="ADMIN">管理者</option>
+                    </select>
+                    <small style="color: #666; font-size: 0.85em;">後方互換性のための基本ロールです</small>
+                </div>
+                
+                <!-- カスタムロール選択 -->
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">カスタムロールを選択:</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                        <div th:if="${roles == null or roles.isEmpty() or #lists.isEmpty(roles.?[!isSystemRole])}" 
+                             style="color: #999; font-size: 0.9em; padding: 10px; text-align: center;">
+                            カスタムロールがありません
+                        </div>
+                        <div th:each="role : ${roles}" 
+                             th:if="${!role.isSystemRole}"
+                             th:attr="data-role-id=${role.id}"
+                             class="role-item-container"
+                             style="display: flex; align-items: center; padding: 8px; border: 1px solid #eee; border-radius: 4px; background-color: #f8f9fa;">
+                            <input type="checkbox" 
+                                   th:id="'role_' + ${role.id}"
+                                   th:name="roleIds" 
+                                   th:value="${role.id}"
+                                   class="custom-role-checkbox"
+                                   style="margin-right: 8px;">
+                            <label th:for="'role_' + ${role.id}" style="flex: 1; cursor: pointer;">
+                                <strong th:text="${role.name}"></strong>
+                                <span th:if="${role.description}" 
+                                      style="display: block; font-size: 0.85em; color: #666; margin-top: 2px;"
+                                      th:text="${role.description}"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <small style="color: #666; font-size: 0.85em;">複数選択可能です</small>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" onclick="closeRoleAssignModal()" class="btn-secondary" style="padding: 8px 20px;">キャンセル</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 勤務設定モーダル -->
+    <div id="workSettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">勤務設定</h2>
+            <p>ユーザー: <strong id="workSettingsUsername"></strong></p>
+            <form id="workSettingsForm" method="post" style="display: flex; flex-direction: column; gap: 20px;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" id="workSettingsUserId" name="userId">
+                <input type="hidden" name="redirectTo" value="users">
+                <div>
+                    <label for="workSettingsWorkType" style="display: block; margin-bottom: 10px; font-weight: 600;">勤務形態:</label>
+                    <select id="workSettingsWorkType" name="workType" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="FULLTIME">フルタイム</option>
+                        <option value="FLEX">フレックス</option>
+                    </select>
+                </div>
+                <div id="workSettingsStartTimeGroup">
+                    <label for="workSettingsStartTime" style="display: block; margin-bottom: 10px; font-weight: 600;">始業時間:</label>
+                    <input type="time" id="workSettingsStartTime" name="startTime" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" value="09:00">
+                </div>
+                <div id="workSettingsCoreTimeGroup" style="display: none;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">コアタイム:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="time" id="workSettingsCoreTimeStart" name="coreTimeStart" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" value="10:00">
+                        <span>～</span>
+                        <input type="time" id="workSettingsCoreTimeEnd" name="coreTimeEnd" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" value="15:00">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closeWorkSettingsModal()" class="btn-secondary">キャンセル</button>
+                    <button type="submit" class="btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 日別エクスポートモーダル -->
+    <div id="exportDailyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 320px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">日別データ エクスポート</h2>
+            <form id="exportDailyForm">
+                <input type="hidden" id="exportDailyUserId">
+                <div style="margin-bottom: 15px;">
+                    <label for="exportDailyDate" style="display: block; margin-bottom: 5px; font-weight: 600;">日付:</label>
+                    <input type="date" id="exportDailyDate" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closeExportDailyModal()" class="btn-secondary">キャンセル</button>
+                    <button type="submit" class="btn-primary">ダウンロード</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 月別エクスポートモーダル -->
+    <div id="exportMonthlyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 320px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">月別データ エクスポート</h2>
+            <form id="exportMonthlyForm">
+                <input type="hidden" id="exportMonthlyUserId">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">年月:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="exportMonthlyYear" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option th:each="y : ${#numbers.sequence(2000, 2099)}" th:value="${y}" th:text="${y + '年'}" th:selected="${y == currentYear}"></option>
+                        </select>
+                        <select id="exportMonthlyMonth" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option th:each="m : ${#numbers.sequence(1, 12)}" th:value="${m}" th:text="${m + '月'}" th:selected="${m == currentMonth}"></option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closeExportMonthlyModal()" class="btn-secondary">キャンセル</button>
+                    <button type="submit" class="btn-primary">ダウンロード</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
+

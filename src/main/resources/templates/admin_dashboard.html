@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者ダッシュボード - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>管理者ダッシュボード</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="dashboard-content">
+            <section class="card">
+                <h2>概要</h2>
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">保留中の修正依頼:</span>
+                        <span class="stat-value" th:text="${pendingRequestsCount}">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">未解決の異常検知:</span>
+                        <span class="stat-value" 
+                              style="color: #e74c3c; font-weight: bold;"
+                              th:text="${unresolvedAnomalyCount}">0</span>
+                        <a th:href="@{/admin/anomaly-detection}" 
+                           th:if="${canViewUsers and unresolvedAnomalyCount > 0}"
+                           style="margin-left: 10px; color: #3498db; text-decoration: underline; font-size: 0.9em;">詳細を見る</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 今日の勤務状況 -->
+            <section class="card" th:if="${todayStatusList != null and !todayStatusList.isEmpty()}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">📊 今日の勤務状況</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" 
+                                id="viewModeSimple" 
+                                class="btn-secondary view-mode-btn" 
+                                style="padding: 8px 15px; font-size: 0.9em;"
+                                onclick="switchViewMode('simple')">簡易表示</button>
+                        <button type="button" 
+                                id="viewModeDetail" 
+                                class="btn-primary view-mode-btn" 
+                                style="padding: 8px 15px; font-size: 0.9em;"
+                                onclick="switchViewMode('detail')">詳細表示</button>
+                    </div>
+                </div>
+                <p style="color: #666; margin-bottom: 15px; font-size: 0.9em;">
+                    <span th:text="${#temporals.format(#temporals.createToday(), 'yyyy年MM月dd日')}"></span> の全社員の勤務状況
+                </p>
+                
+                <!-- 簡易表示 -->
+                <div id="simpleView" style="display: none;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div th:each="status : ${workingOrCompletedList}" 
+                             style="padding: 15px; background-color: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                            <div style="font-weight: bold; margin-bottom: 5px;" th:text="${status.username}"></div>
+                            <div style="font-size: 0.9em; color: #666;" th:text="${status.statusLabel}"></div>
+                            <div style="font-size: 0.85em; color: #999; margin-top: 5px;">
+                                <span th:if="${status.checkInTime != null}" th:text="${#temporals.format(status.checkInTime, 'HH:mm') + ' ～ '}"></span>
+                                <span th:if="${status.checkOutTime != null}" th:text="${#temporals.format(status.checkOutTime, 'HH:mm')}"></span>
+                                <span th:if="${status.checkOutTime == null}">退勤未打刻</span>
+                            </div>
+                        </div>
+                        <div th:each="status : ${notStartedOrLateList}" 
+                             style="padding: 15px; background-color: #ffebee; border-left: 4px solid #e74c3c; border-radius: 4px;">
+                            <div style="font-weight: bold; margin-bottom: 5px;" th:text="${status.username}"></div>
+                            <div style="font-size: 0.9em; color: #666;" th:text="${status.statusLabel}"></div>
+                            <div style="font-size: 0.85em; color: #999; margin-top: 5px;">
+                                始業: <span th:text="${status.startTime != null ? #temporals.format(status.startTime, 'HH:mm') : '-'}"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 詳細表示 -->
+                <div id="detailView">
+                    <!-- 勤務中・勤務済み -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #27ae60; margin-bottom: 10px; font-size: 1.1em;">✅ 勤務中・勤務済み</h3>
+                        <div class="table-wrapper">
+                            <table class="attendance-table">
+                                <thead>
+                                    <tr>
+                                        <th>社員名</th>
+                                        <th>状態</th>
+                                        <th>出勤時刻</th>
+                                        <th>退勤時刻</th>
+                                        <th>始業時間</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="status : ${workingOrCompletedList}">
+                                        <td><strong th:text="${status.username}"></strong></td>
+                                        <td>
+                                            <span th:if="${status.status == 'WORKING'}" 
+                                                  style="background-color: #3498db; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.9em;"
+                                                  th:text="${status.statusLabel}"></span>
+                                            <span th:if="${status.status == 'COMPLETED'}" 
+                                                  style="background-color: #95a5a6; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.9em;"
+                                                  th:text="${status.statusLabel}"></span>
+                                        </td>
+                                        <td th:text="${status.checkInTime != null ? #temporals.format(status.checkInTime, 'HH:mm') : '-'}"></td>
+                                        <td th:text="${status.checkOutTime != null ? #temporals.format(status.checkOutTime, 'HH:mm') : '-'}"></td>
+                                        <td th:text="${status.startTime != null ? #temporals.format(status.startTime, 'HH:mm') : '-'}"></td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(workingOrCompletedList)}">
+                                        <td colspan="5" style="text-align: center; color: #999;">該当データなし</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 未勤務・遅刻中 -->
+                    <div>
+                        <h3 style="color: #e74c3c; margin-bottom: 10px; font-size: 1.1em;">⚠️ 未勤務・遅刻中</h3>
+                        <div class="table-wrapper">
+                            <table class="attendance-table">
+                                <thead>
+                                    <tr>
+                                        <th>社員名</th>
+                                        <th>状態</th>
+                                        <th>始業時間</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="status : ${notStartedOrLateList}">
+                                        <td><strong th:text="${status.username}"></strong></td>
+                                        <td>
+                                            <span th:if="${status.status == 'NOT_STARTED'}" 
+                                                  style="background-color: #ecf0f1; color: #2c3e50; padding: 4px 12px; border-radius: 4px; font-size: 0.9em;"
+                                                  th:text="${status.statusLabel}"></span>
+                                            <span th:if="${status.status == 'LATE'}" 
+                                                  style="background-color: #e74c3c; color: white; padding: 4px 12px; border-radius: 4px; font-size: 0.9em; font-weight: bold;"
+                                                  th:text="${status.statusLabel}"></span>
+                                        </td>
+                                        <td th:text="${status.startTime != null ? #temporals.format(status.startTime, 'HH:mm') : '-'}"></td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(notStartedOrLateList)}">
+                                        <td colspan="3" style="text-align: center; color: #999;">該当データなし</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <script>
+                // ヘッダーの高さに応じてコンテナのpadding-topを動的に調整
+                document.addEventListener('DOMContentLoaded', function() {
+                    function adjustContainerPadding() {
+                        const header = document.querySelector('header');
+                        const container = document.querySelector('.container');
+                        if (header && container) {
+                            const headerHeight = header.offsetHeight;
+                            container.style.paddingTop = (headerHeight + 20) + 'px';
+                        }
+                    }
+                    
+                    // 初回実行
+                    adjustContainerPadding();
+                    
+                    // リサイズ時にも調整
+                    window.addEventListener('resize', adjustContainerPadding);
+                });
+
+                function switchViewMode(mode) {
+                    const simpleView = document.getElementById('simpleView');
+                    const detailView = document.getElementById('detailView');
+                    const simpleBtn = document.getElementById('viewModeSimple');
+                    const detailBtn = document.getElementById('viewModeDetail');
+                    
+                    if (mode === 'simple') {
+                        simpleView.style.display = 'block';
+                        detailView.style.display = 'none';
+                        simpleBtn.classList.remove('btn-secondary');
+                        simpleBtn.classList.add('btn-primary');
+                        detailBtn.classList.remove('btn-primary');
+                        detailBtn.classList.add('btn-secondary');
+                    } else {
+                        simpleView.style.display = 'none';
+                        detailView.style.display = 'block';
+                        detailBtn.classList.remove('btn-secondary');
+                        detailBtn.classList.add('btn-primary');
+                        simpleBtn.classList.remove('btn-primary');
+                        simpleBtn.classList.add('btn-secondary');
+                    }
+                }
+
+                // スマホの場合は簡易表示をデフォルトにする
+                document.addEventListener('DOMContentLoaded', function() {
+                    function setInitialViewMode() {
+                        const isMobile = window.innerWidth <= 480;
+                        if (isMobile) {
+                            switchViewMode('simple');
+                        } else {
+                            switchViewMode('detail');
+                        }
+                    }
+                    
+                    // 初回実行
+                    setInitialViewMode();
+                    
+                    // リサイズ時にも調整
+                    window.addEventListener('resize', setInitialViewMode);
+                });
+            </script>
+
+            <section class="card">
+                <h2>管理メニュー</h2>
+                <nav class="menu">
+                    <a th:href="@{/admin/users}" class="menu-link" th:if="${canViewUsers}">👥 社員管理</a>
+                    <a th:href="@{/admin/evaluations}" class="menu-link" th:if="${canViewUsers}">⭐ 評価管理</a>
+                    <a th:href="@{/admin/evaluations/monthly}" class="menu-link" th:if="${canViewUsers}">📅 月別評価一覧</a>
+                    <a th:href="@{/admin/fix-requests}" class="menu-link" th:if="${canApproveFixRequests}">✏️ 修正依頼管理</a>
+                    <a th:href="@{/admin/anomaly-detection}" class="menu-link" th:if="${canViewUsers}">⚠️ 異常検知</a>
+                    <a th:href="@{/admin/settings}" class="menu-link" th:if="${canManageSettings or canManageUsers}">⚙️ 設定</a>
+                    <a th:href="@{/attendance/logs}" class="menu-link" th:if="${canViewLogs}">📝 ログ</a>
+                    <a th:href="@{/report/admin/monthly}" class="menu-link" th:if="${canViewReports}">📊 全社月次レポート</a>
+                    <a th:href="@{/export/page}" class="menu-link" style="background-color: #27ae60; color: white;" th:if="${canExport}">📥 データエクスポート</a>
+                </nav>
+            </section>
+
+            <section class="card">
+                <h2>最近の勤怠記録</h2>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>ユーザー名</th>
+                                <th>出勤</th>
+                                <th>退勤</th>
+                                <th>休憩開始</th>
+                                <th>休憩終了</th>
+                                <th>ステータス</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="attendance : ${attendances}" th:if="${attendanceStat.index < 10}">
+                                <td th:text="${attendance.id}"></td>
+                                <td th:text="${userMap.get(attendance.userId)}"></td>
+                                <td th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.checkOut != null ? #temporals.format(attendance.checkOut, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.breakStart != null ? #temporals.format(attendance.breakStart, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.breakEnd != null ? #temporals.format(attendance.breakEnd, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+                                <td th:text="${attendance.statusInJapanese}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

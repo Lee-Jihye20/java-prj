@@ -1,0 +1,597 @@
+/* グローバルスタイル */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-top: 100px; /* 固定ヘッダーのスペース（デスクトップ） */
+}
+
+/* ヘッダー */
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    padding: 15px 20px;
+    border-radius: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+header h1 {
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* カード */
+.card {
+    background-color: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card h2 {
+    font-size: 20px;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+/* ボタン */
+.btn-primary, .btn-secondary, .btn-link, .btn-approve, .btn-reject {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+    transition: background-color 0.3s;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+.btn-link {
+    background-color: #3498db;
+    color: white;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.btn-link:hover {
+    background-color: #2980b9;
+}
+
+.btn-approve {
+    background-color: #27ae60;
+    color: white;
+    padding: 5px 15px;
+    font-size: 12px;
+}
+
+.btn-approve:hover {
+    background-color: #229954;
+}
+
+.btn-reject {
+    background-color: #e74c3c;
+    color: white;
+    padding: 5px 15px;
+    font-size: 12px;
+}
+
+.btn-reject:hover {
+    background-color: #c0392b;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* フォーム */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+/* テーブル */
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.attendance-table th,
+.attendance-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.attendance-table th {
+    background-color: #3498db;
+    color: white;
+    font-weight: 600;
+}
+
+.attendance-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* メッセージ */
+.error-message {
+    background-color: #e74c3c;
+    color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background-color: #27ae60;
+    color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+/* ログインボックス */
+.login-box {
+    max-width: 400px;
+    margin: 100px auto;
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-box h1 {
+    text-align: center;
+    color: #3498db;
+    margin-bottom: 10px;
+}
+
+.login-box h2 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 20px;
+}
+
+.login-info {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.login-info h3 {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-bottom: 10px;
+}
+
+.login-info p {
+    font-size: 12px;
+    color: #95a5a6;
+    margin: 5px 0;
+}
+
+/* メニュー */
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.menu-link {
+    display: block;
+    padding: 15px;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.menu-link:hover {
+    background-color: #bdc3c7;
+}
+
+/* 統計情報 */
+.stats {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+}
+
+.stat-label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.stat-value {
+    font-size: 20px;
+    color: #3498db;
+    font-weight: bold;
+}
+
+/* 情報グループ */
+.info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.info-item {
+    display: flex;
+    padding: 10px;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #2c3e50;
+    min-width: 120px;
+}
+
+/* ステータスバッジ */
+.status-pending {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.status-approved {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.status-rejected {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* ダッシュボードコンテンツ */
+.dashboard-content {
+    display: grid;
+    gap: 20px;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+        padding-top: 180px; /* 固定ヘッダーのスペース（モバイル） */
+    }
+
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 15px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        min-height: 160px; /* 最小高さを確保 */
+    }
+
+    header h1 {
+        font-size: 18px;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .user-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .user-info form {
+        width: 100%;
+    }
+
+    .user-info button,
+    .user-info a {
+        width: 100%;
+        text-align: center;
+        margin-left: 0 !important;
+        margin-top: 5px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button-group button,
+    .button-group form {
+        width: 100%;
+    }
+
+    .btn-primary, .btn-secondary, .btn-link, .btn-approve, .btn-reject {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px; /* タッチ操作を考慮 */
+    }
+
+    .card {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .card h2 {
+        font-size: 18px;
+    }
+
+    .attendance-table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .attendance-table th,
+    .attendance-table td {
+        padding: 8px 4px;
+        white-space: nowrap;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .stats {
+        gap: 10px;
+    }
+
+    .stat-item {
+        flex-direction: column;
+        gap: 5px;
+        padding: 15px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .menu-link {
+        padding: 15px;
+        font-size: 16px; /* タッチ操作を考慮 */
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px; /* iOSでズームを防ぐ */
+        padding: 12px;
+    }
+
+    .login-box {
+        margin: 20px auto;
+        padding: 20px;
+        max-width: 100%;
+    }
+
+    .info-item {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .info-label {
+        min-width: auto;
+    }
+}
+
+/* iPhone 12 Pro (390px) 基準 */
+@media (max-width: 480px) {
+    .container {
+        padding: 8px;
+        padding-top: 180px; /* 固定ヘッダーのスペース（iPhone 12 Pro基準） */
+    }
+
+    header {
+        padding: 10px 12px;
+        min-height: 160px; /* 最小高さを確保 */
+    }
+
+    header h1 {
+        font-size: 16px;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .user-info {
+        gap: 6px;
+    }
+
+    .user-info button,
+    .user-info a {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+
+    /* スマホの時のみ、表示順序を変更 */
+    .dashboard-content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .punch-section {
+        order: 1; /* 1. 打刻 */
+    }
+
+    .work-status-section {
+        order: 2; /* 2. 勤務状況 */
+    }
+
+    .menu-section {
+        order: 3; /* 3. メニュー */
+    }
+
+    .admin-menu-section {
+        order: 4; /* 管理機能メニュー（メニューの後） */
+    }
+
+    .highlights-section {
+        order: 5; /* 4. 前月のハイライト */
+    }
+
+    .card {
+        padding: 10px;
+    }
+
+    .card h2 {
+        font-size: 16px;
+    }
+
+    .attendance-table {
+        font-size: 11px;
+    }
+
+    .attendance-table th,
+    .attendance-table td {
+        padding: 6px 3px;
+    }
+
+    /* モーダルのモバイル対応 */
+    div[style*="position: fixed"] {
+        padding: 10px !important;
+    }
+
+    div[style*="position: absolute"][style*="transform: translate(-50%, -50%)"] {
+        min-width: 90% !important;
+        max-width: 95% !important;
+        padding: 20px !important;
+        max-height: 90vh !important;
+    }
+
+    /* フォーム要素のモバイル最適化 */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    select,
+    textarea {
+        font-size: 16px !important; /* iOSでズームを防ぐ */
+    }
+
+    /* 統計グリッドのモバイル対応 */
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .stat-card {
+        padding: 15px !important;
+    }
+
+    .stat-value {
+        font-size: 24px !important;
+    }
+
+    .stat-value.status {
+        font-size: 18px !important;
+    }
+
+    /* ボタンのモバイル最適化 */
+    .btn-break,
+    .btn-leave {
+        width: 100% !important;
+        padding: 12px !important;
+        font-size: 16px !important;
+        margin-bottom: 10px !important;
+    }
+}

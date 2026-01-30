@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月次勤務レポート - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>月次勤務レポート</h1>
+            <div class="user-info">
+                <span th:text="${username}">ユーザー名</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;" sec:authorize="hasAuthority('ADMIN')">管理画面へ</a>
+                <a th:href="${isAdmin ? '/admin/dashboard' : '/employee/dashboard'}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- 月選択 -->
+            <section class="card">
+                <h2>期間選択</h2>
+                <form th:action="${isAdmin ? '/report/admin/monthly' : '/report/monthly'}" method="get">
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label for="year">年</label>
+                            <input type="number" id="year" name="year" th:value="${currentYear}" min="2020" max="2100" required>
+                        </div>
+                        <div style="flex: 1;">
+                            <label for="month">月</label>
+                            <input type="number" id="month" name="month" th:value="${currentMonth}" min="1" max="12" required>
+                        </div>
+                        <button type="submit" class="btn-primary">表示</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- サマリー -->
+            <section class="card">
+                <h2 th:text="${report.year + '年' + report.month + '月 勤務サマリー'}">勤務サマリー</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">出勤日数</div>
+                        <div class="stat-value" th:text="${report.workDays + '日'}">0日</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">総勤務時間</div>
+                        <div class="stat-value" th:text="${#numbers.formatDecimal(report.totalWorkHours, 1, 1) + '時間'}">0時間</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">総残業時間</div>
+                        <div class="stat-value" th:text="${#numbers.formatDecimal(report.totalOvertimeHours, 1, 1) + '時間'}">0時間</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">平均勤務時間</div>
+                        <div class="stat-value" th:text="${#numbers.formatDecimal(report.averageWorkHours, 1, 1) + '時間/日'}">0時間/日</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- グラフ -->
+            <section class="card" th:if="${!report.dailyReports.isEmpty()}">
+                <h2>勤務時間推移</h2>
+                <canvas id="workHoursChart" style="max-height: 400px;"></canvas>
+            </section>
+
+            <!-- 日別詳細 -->
+            <section class="card" th:if="${!report.dailyReports.isEmpty()}">
+                <h2>日別詳細</h2>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>勤務時間</th>
+                                <th>残業時間</th>
+                                <th>休憩時間</th>
+                                <th>ステータス</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="daily : ${report.dailyReports}">
+                                <td th:text="${#temporals.format(daily.date, 'yyyy-MM-dd (E)')}"></td>
+                                <td th:text="${#numbers.formatDecimal(daily.workHours, 1, 1) + 'h'}"></td>
+                                <td th:text="${#numbers.formatDecimal(daily.overtimeHours, 1, 1) + 'h'}"
+                                    th:class="${daily.overtimeHours > 0 ? 'overtime-warning' : ''}"></td>
+                                <td th:text="${#numbers.formatDecimal(daily.breakHours, 1, 1) + 'h'}"></td>
+                                <td th:text="${daily.statusInJapanese}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div th:if="${report.dailyReports.isEmpty()}" class="card">
+                <p style="text-align: center; color: #7f8c8d;">この期間の勤怠データはありません</p>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const dailyReports = /*[[${report.dailyReports}]]*/ [];
+
+        if (dailyReports && dailyReports.length > 0) {
+            const ctx = document.getElementById('workHoursChart').getContext('2d');
+            const dates = dailyReports.map(d => d.date);
+            const workHours = dailyReports.map(d => (d.workMinutes / 60.0).toFixed(1));
+            const overtimeHours = dailyReports.map(d => (d.overtimeMinutes / 60.0).toFixed(1));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '勤務時間',
+                            data: workHours,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.1
+                        },
+                        {
+                            label: '残業時間',
+                            data: overtimeHours,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '時間'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        /*]]>*/
+    </script>
+
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .overtime-warning {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</body>
+</html>

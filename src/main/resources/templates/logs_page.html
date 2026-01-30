@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログ - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .log-table th,
+        .log-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            font-size: 0.9em;
+        }
+        .log-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        .log-table tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+        .date-filter {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .date-filter input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .export-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .filter-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .filter-group label {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .filter-group select {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ログ</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">管理画面に戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- 期間フィルター -->
+            <section class="card">
+                <h2>期間選択</h2>
+                <form method="get" th:action="@{/attendance/logs}">
+                    <div class="date-filter">
+                        <label for="startDate">開始日:</label>
+                        <input type="date" id="startDate" name="startDate" th:value="${startDate}">
+                        <label for="endDate">終了日:</label>
+                        <input type="date" id="endDate" name="endDate" th:value="${endDate}">
+                        <button type="submit" class="btn-primary">検索</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 打刻ログ -->
+            <section class="card">
+                <h2>打刻ログ</h2>
+                <div class="export-buttons">
+                    <button type="button" id="exportButton" class="btn-primary">📥 エクスポート</button>
+                </div>
+                
+                <!-- フィルター -->
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label for="userFilter">ユーザー:</label>
+                        <select id="userFilter">
+                            <option value="">すべて</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="actionFilter">操作種別:</label>
+                        <select id="actionFilter">
+                            <option value="">すべて</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button type="button" id="clearFilters" class="btn-secondary" style="padding: 5px 15px; font-size: 0.9em;">フィルター解除</button>
+                    </div>
+                </div>
+                
+                <div style="max-height: 600px; overflow-y: auto;">
+                    <table class="log-table" id="logTable">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>ユーザー名</th>
+                                <th>操作種別</th>
+                                <th>値</th>
+                                <th>備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                            <tr th:if="${logs.isEmpty()}">
+                                <td colspan="5" style="text-align: center; color: #999;">ログがありません</td>
+                            </tr>
+                            <tr th:each="log : ${logs}" 
+                                th:data-username="${log.username}"
+                                th:data-operation="${log.operationType}">
+                                <td th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                                <td th:text="${log.username}"></td>
+                                <td th:text="${log.operationType}"></td>
+                                <td th:text="${log.value}"></td>
+                                <td th:text="${log.note}" style="font-size: 0.85em;"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="filterResultCount" style="margin-top: 10px; color: #666; font-size: 0.9em;"></div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 未来の日付を無効化
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            if (startDateInput) {
+                startDateInput.setAttribute('max', today);
+            }
+            if (endDateInput) {
+                endDateInput.setAttribute('max', today);
+            }
+
+            // フィルター機能の初期化
+            initFilters();
+        });
+
+        function initFilters() {
+            const userFilter = document.getElementById('userFilter');
+            const actionFilter = document.getElementById('actionFilter');
+            const logTableBody = document.getElementById('logTableBody');
+            const clearFiltersBtn = document.getElementById('clearFilters');
+            const filterResultCount = document.getElementById('filterResultCount');
+
+            // ログデータからユニークなユーザー名と操作種別を取得
+            const users = new Set();
+            const operations = new Set();
+            
+            const rows = logTableBody.querySelectorAll('tr[data-username]');
+            rows.forEach(row => {
+                const username = row.getAttribute('data-username');
+                const operation = row.getAttribute('data-operation');
+                if (username) users.add(username);
+                if (operation) operations.add(operation);
+            });
+
+            // ユーザーフィルターのオプションを追加
+            Array.from(users).sort().forEach(username => {
+                const option = document.createElement('option');
+                option.value = username;
+                option.textContent = username;
+                userFilter.appendChild(option);
+            });
+
+            // 操作種別フィルターのオプションを追加
+            Array.from(operations).sort().forEach(operation => {
+                const option = document.createElement('option');
+                option.value = operation;
+                option.textContent = operation;
+                actionFilter.appendChild(option);
+            });
+
+            // フィルター適用関数
+            function applyFilters() {
+                const selectedUser = userFilter.value;
+                const selectedAction = actionFilter.value;
+                let visibleCount = 0;
+
+                rows.forEach(row => {
+                    const username = row.getAttribute('data-username');
+                    const operation = row.getAttribute('data-operation');
+                    
+                    const userMatch = !selectedUser || username === selectedUser;
+                    const actionMatch = !selectedAction || operation === selectedAction;
+                    
+                    if (userMatch && actionMatch) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // 結果数を表示
+                const totalCount = rows.length;
+                if (selectedUser || selectedAction) {
+                    filterResultCount.textContent = `表示: ${visibleCount}件 / 全${totalCount}件`;
+                } else {
+                    filterResultCount.textContent = `全${totalCount}件`;
+                }
+            }
+
+            // フィルター変更時に適用
+            userFilter.addEventListener('change', function() {
+                applyFilters();
+            });
+            actionFilter.addEventListener('change', function() {
+                applyFilters();
+            });
+
+            // フィルター解除ボタン
+            clearFiltersBtn.addEventListener('click', function() {
+                userFilter.value = '';
+                actionFilter.value = '';
+                applyFilters();
+            });
+
+            // エクスポートボタンのクリックイベント
+            const exportButton = document.getElementById('exportButton');
+            if (exportButton) {
+                exportButton.addEventListener('click', function() {
+                    // 日付入力フィールドから値を取得
+                    const startDateInput = document.getElementById('startDate');
+                    const endDateInput = document.getElementById('endDate');
+                    
+                    if (!startDateInput || !endDateInput) {
+                        alert('日付入力フィールドが見つかりません');
+                        return;
+                    }
+                    
+                    const startDate = startDateInput.value ? startDateInput.value.trim() : '';
+                    const endDate = endDateInput.value ? endDateInput.value.trim() : '';
+                    
+                    // 日付が空の場合はエラー
+                    if (!startDate || !endDate) {
+                        alert('開始日と終了日を選択してください');
+                        return;
+                    }
+                    
+                    // 日付形式のバリデーション（基本的なチェック）
+                    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+                    if (!datePattern.test(startDate) || !datePattern.test(endDate)) {
+                        alert('日付の形式が正しくありません（YYYY-MM-DD形式で入力してください）');
+                        return;
+                    }
+                    
+                    // 現在のフィルター状態を取得
+                    const selectedUser = userFilter.value;
+                    const selectedAction = actionFilter.value;
+                    
+                    // エクスポートURLを構築
+                    let exportUrl = '/export/log?startDate=' + encodeURIComponent(startDate) + 
+                                   '&endDate=' + encodeURIComponent(endDate);
+                    
+                    if (selectedUser) {
+                        exportUrl += '&username=' + encodeURIComponent(selectedUser);
+                    }
+                    
+                    if (selectedAction) {
+                        exportUrl += '&operationType=' + encodeURIComponent(selectedAction);
+                    }
+                    
+                    // エクスポートを実行
+                    window.location.href = exportUrl;
+                });
+            }
+
+            // 初期表示
+            applyFilters();
+        }
+    </script>
+</body>
+</html>

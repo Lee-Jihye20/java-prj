@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>従業員ダッシュボード - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>従業員ダッシュボード</h1>
+            <div class="user-info">
+                <span sec:authentication="name">ユーザー名</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;" th:if="${canAccessAdmin}">管理画面へ</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">打刻が完了しました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="dashboard-content">
+            <!-- 統計情報 -->
+            <section class="card work-status-section" th:if="${statistics != null}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">勤務状況</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" 
+                                id="workStatusViewModeSimple" 
+                                class="btn-secondary view-mode-btn" 
+                                style="padding: 8px 15px; font-size: 0.9em;"
+                                onclick="switchWorkStatusViewMode('simple')">簡易表示</button>
+                        <button type="button" 
+                                id="workStatusViewModeDetail" 
+                                class="btn-primary view-mode-btn" 
+                                style="padding: 8px 15px; font-size: 0.9em;"
+                                onclick="switchWorkStatusViewMode('detail')">詳細表示</button>
+                    </div>
+                </div>
+                
+                <!-- 簡易表示 -->
+                <div id="workStatusSimpleView" style="display: none;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-label">現在の状態</div>
+                            <div class="stat-value status" th:text="${statistics.currentStatus}">未出勤</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今月の勤務</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.monthWorkHours, 1, 1) + 'h'}">0.0h</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 詳細表示 -->
+                <div id="workStatusDetailView">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">現在の状態</div>
+                            <div class="stat-value status" th:text="${statistics.currentStatus}">未出勤</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今日の勤務</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.todayWorkHours, 1, 1) + 'h'}">0.0h</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今週の勤務</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.weekWorkHours, 1, 1) + 'h'}">0.0h</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今月の勤務</div>
+                            <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.monthWorkHours, 1, 1) + 'h'}">0.0h</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今月の残業</div>
+                            <div class="stat-value overtime" th:text="${#numbers.formatDecimal(statistics.monthOvertimeHours, 1, 1) + 'h'}">0.0h</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">今月の出勤日数</div>
+                            <div class="stat-value" th:text="${statistics.monthWorkDays + '日'}">0日</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card punch-section">
+                <h2>打刻</h2>
+                <div class="button-group">
+                    <form th:action="@{/attendance/check-in}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                        <button type="submit" 
+                                class="btn-primary" 
+                                style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                th:disabled="${hasCheckedIn}"
+                                th:style="${hasCheckedIn ? 'opacity: 0.5; cursor: not-allowed;' : ''}">出勤</button>
+                    </form>
+
+                    <form id="checkoutForm" th:action="@{/attendance/check-out}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                        <button type="submit" 
+                                class="btn-primary" 
+                                id="checkoutButton" 
+                                style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                th:disabled="${!hasCheckedIn or hasCheckedOut}"
+                                th:style="${!hasCheckedIn or hasCheckedOut ? 'opacity: 0.5; cursor: not-allowed;' : ''}">退勤</button>
+                    </form>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                    <h3 style="margin-top: 0; margin-bottom: 10px; color: #2e7d32;">休憩</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">勤務時間内の休憩時間です</p>
+                    <div class="button-group">
+                        <form th:action="@{/attendance/break-start}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                            <button type="submit" 
+                                    class="btn-break" 
+                                    style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                    th:disabled="${!hasCheckedIn or hasCheckedOut or isOnBreak or isOnLeave}"
+                                    th:style="${!hasCheckedIn or hasCheckedOut or isOnBreak or isOnLeave ? 'opacity: 0.5; cursor: not-allowed;' : ''}">休憩開始</button>
+                        </form>
+
+                        <form th:action="@{/attendance/break-end}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                            <button type="submit" 
+                                    class="btn-break" 
+                                    style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                    th:disabled="${!hasCheckedIn or hasCheckedOut or !isOnBreak}"
+                                    th:style="${!hasCheckedIn or hasCheckedOut or !isOnBreak ? 'opacity: 0.5; cursor: not-allowed;' : ''}">休憩終了</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                    <h3 style="margin-top: 0; margin-bottom: 10px; color: #e65100;">中抜け</h3>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">勤務時間外の外出（控除または有給として扱われます）</p>
+                    <div class="button-group">
+                        <form th:action="@{/attendance/leave-start}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                            <button type="submit" 
+                                    class="btn-leave" 
+                                    style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                    th:disabled="${!hasCheckedIn or hasCheckedOut or isOnBreak or isOnLeave}"
+                                    th:style="${!hasCheckedIn or hasCheckedOut or isOnBreak or isOnLeave ? 'opacity: 0.5; cursor: not-allowed;' : ''}">中抜け開始</button>
+                        </form>
+
+                        <form th:action="@{/attendance/leave-end}" method="post" style="display: inline-block; width: 100%; margin-bottom: 10px;">
+                            <button type="submit" 
+                                    class="btn-leave" 
+                                    style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold;"
+                                    th:disabled="${!hasCheckedIn or hasCheckedOut or !isOnLeave}"
+                                    th:style="${!hasCheckedIn or hasCheckedOut or !isOnLeave ? 'opacity: 0.5; cursor: not-allowed;' : ''}">中抜け終了</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card menu-section">
+                <h2>メニュー</h2>
+                <nav class="menu">
+                    <a th:href="@{/attendance/history}" class="menu-link">📋 勤怠履歴</a>
+                    <a th:href="@{/calendar}" class="menu-link">📅 カレンダー表示</a>
+                    <a th:href="@{/report/monthly}" class="menu-link">📊 月次レポート</a>
+                    <a th:href="@{/attendance/fix-request-list}" class="menu-link">✏️ 修正依頼一覧</a>
+                </nav>
+            </section>
+
+            <!-- 管理機能メニュー（権限がある場合のみ表示） -->
+            <section class="card admin-menu-section" th:if="${canAccessAdmin}">
+                <h2>管理機能</h2>
+                <nav class="menu">
+                    <a th:href="@{/admin/users}" class="menu-link" th:if="${canViewUsers}">👥 社員管理</a>
+                    <a th:href="@{/admin/fix-requests}" class="menu-link" th:if="${canApproveFixRequests}">✏️ 修正依頼管理</a>
+                    <a th:href="@{/admin/anomaly-detection}" class="menu-link" th:if="${canViewUsers}">⚠️ 異常検知</a>
+                    <a th:href="@{/admin/break-settings}" class="menu-link" th:if="${canManageSettings}">⏰ 休憩設定</a>
+                    <a th:href="@{/attendance/logs}" class="menu-link" th:if="${canViewLogs}">📝 ログ</a>
+                    <a th:href="@{/report/admin/monthly}" class="menu-link" th:if="${canViewReports}">📊 全社月次レポート</a>
+                    <a th:href="@{/export/page}" class="menu-link" style="background-color: #27ae60; color: white;" th:if="${canExport}">📥 データエクスポート</a>
+                    <a th:href="@{/admin/roles}" class="menu-link" th:if="${canManageRoles}">🔐 ロール管理</a>
+                </nav>
+            </section>
+
+            <!-- ハイライト（前月の週ごとの評価・勤務時間・残業時間） -->
+            <section class="card highlights-section" th:if="${highlights != null and !highlights.isEmpty()}">
+                <h2>📊 前月のハイライト</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px;">
+                    <div th:each="highlight : ${highlights}" class="highlight-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">
+                            <span th:text="${#temporals.format(highlight.weekStartDate, 'MM/dd') + ' ～ ' + #temporals.format(highlight.weekEndDate, 'MM/dd')}"></span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">評価</div>
+                                <div style="font-size: 1.8em; font-weight: bold;" th:switch="${highlight.rating}">
+                                    <span th:case="'S'" style="color: #ffeb3b;">S</span>
+                                    <span th:case="'A'" style="color: #ff9800;">A</span>
+                                    <span th:case="'B'" style="color: #2196f3;">B</span>
+                                    <span th:case="'C'" style="color: #9e9e9e;">C</span>
+                                    <span th:case="'D'" style="color: #424242;">D</span>
+                                    <span th:case="*" style="color: #ccc;">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">勤務時間</div>
+                                <div style="font-size: 1.3em; font-weight: bold;" th:text="${#numbers.formatDecimal(highlight.workHours, 1, 1) + 'h'}"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">残業時間</div>
+                                <div style="font-size: 1.3em; font-weight: bold;" th:text="${#numbers.formatDecimal(highlight.overtimeHours, 1, 1) + 'h'}"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <style>
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 15px;
+                margin-top: 20px;
+            }
+
+            @media (max-width: 768px) {
+                .stats-grid {
+                    grid-template-columns: 1fr;
+                    gap: 10px;
+                }
+            }
+
+            .stat-card {
+                background-color: #ecf0f1;
+                padding: 20px;
+                border-radius: 8px;
+                text-align: center;
+            }
+
+            .stat-label {
+                font-size: 14px;
+                color: #7f8c8d;
+                margin-bottom: 10px;
+            }
+
+            .stat-value {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+
+            .stat-value.status {
+                font-size: 20px;
+            }
+
+            .stat-value.overtime {
+                color: #e74c3c;
+            }
+
+            .btn-break {
+                background-color: #4caf50;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.3s;
+            }
+
+            .btn-break:hover {
+                background-color: #45a049;
+            }
+
+            .btn-leave {
+                background-color: #ff9800;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.3s;
+            }
+
+            .btn-leave:hover {
+                background-color: #f57c00;
+            }
+        </style>
+
+        <script th:inline="javascript">
+            // ヘッダーの高さに応じてコンテナのpadding-topを動的に調整
+            document.addEventListener('DOMContentLoaded', function() {
+                function adjustContainerPadding() {
+                    const header = document.querySelector('header');
+                    const container = document.querySelector('.container');
+                    if (header && container) {
+                        const headerHeight = header.offsetHeight;
+                        container.style.paddingTop = (headerHeight + 20) + 'px';
+                    }
+                }
+                
+                // 初回実行
+                adjustContainerPadding();
+                
+                // リサイズ時にも調整
+                window.addEventListener('resize', adjustContainerPadding);
+            });
+
+            // 勤務状況の表示モード切り替え
+            function switchWorkStatusViewMode(mode) {
+                const simpleView = document.getElementById('workStatusSimpleView');
+                const detailView = document.getElementById('workStatusDetailView');
+                const simpleBtn = document.getElementById('workStatusViewModeSimple');
+                const detailBtn = document.getElementById('workStatusViewModeDetail');
+                
+                if (mode === 'simple') {
+                    simpleView.style.display = 'block';
+                    detailView.style.display = 'none';
+                    simpleBtn.classList.remove('btn-secondary');
+                    simpleBtn.classList.add('btn-primary');
+                    detailBtn.classList.remove('btn-primary');
+                    detailBtn.classList.add('btn-secondary');
+                } else {
+                    simpleView.style.display = 'none';
+                    detailView.style.display = 'block';
+                    detailBtn.classList.remove('btn-secondary');
+                    detailBtn.classList.add('btn-primary');
+                    simpleBtn.classList.remove('btn-primary');
+                    simpleBtn.classList.add('btn-secondary');
+                }
+            }
+
+            // スマホの場合は簡易表示をデフォルトにする
+            document.addEventListener('DOMContentLoaded', function() {
+                function setInitialViewMode() {
+                    const isMobile = window.innerWidth <= 480;
+                    if (isMobile) {
+                        switchWorkStatusViewMode('simple');
+                    } else {
+                        switchWorkStatusViewMode('detail');
+                    }
+                }
+                
+                // 初回実行
+                setInitialViewMode();
+                
+                // リサイズ時にも調整
+                window.addEventListener('resize', setInitialViewMode);
+            });
+
+            // 退勤ボタンのクリックイベントを処理
+            document.addEventListener('DOMContentLoaded', function() {
+                const checkoutForm = document.getElementById('checkoutForm');
+                const checkoutButton = document.getElementById('checkoutButton');
+                
+                if (checkoutForm && checkoutButton) {
+                    checkoutForm.addEventListener('submit', function(e) {
+                        // 休憩中または中抜け中の状態を確認
+                        const isOnBreak = /*[[${isOnBreak}]]*/ false;
+                        const isOnLeave = /*[[${isOnLeave}]]*/ false;
+                        
+                        if (isOnBreak || isOnLeave) {
+                            // デフォルトの送信をキャンセル
+                            e.preventDefault();
+                            
+                            // 警告メッセージを構築
+                            let warningMessage = '警告：';
+                            if (isOnBreak && isOnLeave) {
+                                warningMessage += '休憩中かつ中抜け中です。\n\n';
+                            } else if (isOnBreak) {
+                                warningMessage += '休憩中です。\n\n';
+                            } else if (isOnLeave) {
+                                warningMessage += '中抜け中です。\n\n';
+                            }
+                            warningMessage += '退勤する前に、休憩または中抜けを終了してください。\n\n';
+                            warningMessage += 'それでも退勤しますか？';
+                            
+                            // 確認ダイアログを表示
+                            if (confirm(warningMessage)) {
+                                // ユーザーがOKを選択した場合、フォームを送信
+                                checkoutForm.submit();
+                            }
+                            // ユーザーがキャンセルを選択した場合、何もしない（既にpreventDefaultで送信はキャンセル済み）
+                        }
+                    });
+                }
+            });
+        </script>
+    </div>
+</body>
+</html>

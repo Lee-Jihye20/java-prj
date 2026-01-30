@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>休憩設定 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>休憩設定</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">設定が更新されました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="content">
+            <section class="card">
+                <h2>休憩設定</h2>
+                <form th:action="@{/admin/break-settings}" method="post">
+                    <div class="form-group">
+                        <label for="breakCountLimit">休憩回数:</label>
+                        <select id="breakCountLimit" name="breakCountLimit" class="form-control">
+                            <option value="1" th:selected="${settings.breakCountLimit == 1}">1回</option>
+                            <option value="2" th:selected="${settings.breakCountLimit == 2}">2回</option>
+                            <option value="-1" th:selected="${settings.breakCountLimit == -1}">無制限</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="breakInputMode">休憩入力方式:</label>
+                        <select id="breakInputMode" name="breakInputMode" class="form-control">
+                            <option value="FREE" th:selected="${settings.breakInputMode == 'FREE'}">自由</option>
+                            <option value="FIXED_LUNCH" th:selected="${settings.breakInputMode == 'FIXED_LUNCH'}">昼休憩固定時間</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="autoCalculateBreakTime">合計休憩時間の自動算出:</label>
+                        <select id="autoCalculateBreakTime" name="autoCalculateBreakTime" class="form-control">
+                            <option value="true" th:selected="${settings.autoCalculateBreakTime == true}">ON</option>
+                            <option value="false" th:selected="${settings.autoCalculateBreakTime == false}">OFF</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="lunchBreakTimeGroup" style="display: none;">
+                        <label>昼休憩固定時間:</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div>
+                                <label for="lunchBreakStartTime">開始時刻:</label>
+                                <input type="time" id="lunchBreakStartTime" name="lunchBreakStartTime" 
+                                       class="form-control" 
+                                       th:value="${settings.lunchBreakStartTime != null ? #temporals.format(settings.lunchBreakStartTime, 'HH:mm') : '12:00'}">
+                            </div>
+                            <div>
+                                <label for="lunchBreakEndTime">終了時刻:</label>
+                                <input type="time" id="lunchBreakEndTime" name="lunchBreakEndTime" 
+                                       class="form-control"
+                                       th:value="${settings.lunchBreakEndTime != null ? #temporals.format(settings.lunchBreakEndTime, 'HH:mm') : '13:00'}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="leaveDefaultType">中抜けデフォルト設定:</label>
+                        <select id="leaveDefaultType" name="leaveDefaultType" class="form-control">
+                            <option value="DEDUCTION" th:selected="${settings.leaveDefaultType == 'DEDUCTION' or settings.leaveDefaultType == null}">控除</option>
+                            <option value="PAID_LEAVE" th:selected="${settings.leaveDefaultType == 'PAID_LEAVE'}">有給</option>
+                        </select>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            中抜けボタンを押した際のデフォルト設定を選択します。従業員は必要に応じて変更できます。
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn-primary">設定を保存</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 休憩入力方式が「昼休憩固定時間」の場合、固定時間入力欄を表示
+        document.getElementById('breakInputMode').addEventListener('change', function() {
+            const lunchBreakGroup = document.getElementById('lunchBreakTimeGroup');
+            if (this.value === 'FIXED_LUNCH') {
+                lunchBreakGroup.style.display = 'block';
+            } else {
+                lunchBreakGroup.style.display = 'none';
+            }
+        });
+
+        // ページ読み込み時に初期状態を設定
+        window.addEventListener('DOMContentLoaded', function() {
+            const breakInputMode = document.getElementById('breakInputMode').value;
+            const lunchBreakGroup = document.getElementById('lunchBreakTimeGroup');
+            if (breakInputMode === 'FIXED_LUNCH') {
+                lunchBreakGroup.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        .user-work-settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .user-work-settings-table th,
+        .user-work-settings-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .user-work-settings-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        .user-work-settings-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        .work-type-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .work-type-fulltime {
+            background-color: #3498db;
+            color: white;
+        }
+        .work-type-flex {
+            background-color: #9b59b6;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>設定</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">設定が更新されました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="dashboard-content">
+            <!-- 休憩設定 -->
+            <section class="card settings-section" th:if="${canManageSettings}">
+                <h2>休憩設定</h2>
+                <form th:action="@{/admin/break-settings}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    
+                    <div class="form-group">
+                        <label for="breakCountLimit">休憩回数:</label>
+                        <select id="breakCountLimit" name="breakCountLimit" class="form-control">
+                            <option value="1" th:selected="${breakSettings.breakCountLimit == 1}">1回</option>
+                            <option value="2" th:selected="${breakSettings.breakCountLimit == 2}">2回</option>
+                            <option value="-1" th:selected="${breakSettings.breakCountLimit == -1}">無制限</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="breakInputMode">休憩入力方式:</label>
+                        <select id="breakInputMode" name="breakInputMode" class="form-control">
+                            <option value="FREE" th:selected="${breakSettings.breakInputMode == 'FREE'}">自由</option>
+                            <option value="FIXED_LUNCH" th:selected="${breakSettings.breakInputMode == 'FIXED_LUNCH'}">昼休憩固定時間</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="autoCalculateBreakTime">合計休憩時間の自動算出:</label>
+                        <select id="autoCalculateBreakTime" name="autoCalculateBreakTime" class="form-control">
+                            <option value="true" th:selected="${breakSettings.autoCalculateBreakTime == true}">ON</option>
+                            <option value="false" th:selected="${breakSettings.autoCalculateBreakTime == false}">OFF</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="lunchBreakTimeGroup" style="display: none;">
+                        <label>昼休憩固定時間:</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div>
+                                <label for="lunchBreakStartTime">開始時刻:</label>
+                                <input type="time" id="lunchBreakStartTime" name="lunchBreakStartTime" 
+                                       class="form-control" 
+                                       th:value="${breakSettings.lunchBreakStartTime != null ? #temporals.format(breakSettings.lunchBreakStartTime, 'HH:mm') : '12:00'}">
+                            </div>
+                            <div>
+                                <label for="lunchBreakEndTime">終了時刻:</label>
+                                <input type="time" id="lunchBreakEndTime" name="lunchBreakEndTime" 
+                                       class="form-control"
+                                       th:value="${breakSettings.lunchBreakEndTime != null ? #temporals.format(breakSettings.lunchBreakEndTime, 'HH:mm') : '13:00'}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="leaveDefaultType">中抜けデフォルト設定:</label>
+                        <select id="leaveDefaultType" name="leaveDefaultType" class="form-control">
+                            <option value="DEDUCTION" th:selected="${breakSettings.leaveDefaultType == 'DEDUCTION' or breakSettings.leaveDefaultType == null}">控除</option>
+                            <option value="PAID_LEAVE" th:selected="${breakSettings.leaveDefaultType == 'PAID_LEAVE'}">有給</option>
+                        </select>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            中抜けボタンを押した際のデフォルト設定を選択します。従業員は必要に応じて変更できます。
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn-primary">休憩設定を保存</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Slack通知設定 -->
+            <section class="card settings-section" th:if="${canManageSettings}">
+                <h2>Slack通知設定</h2>
+                <form th:action="@{/admin/slack-settings}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    
+                    <div class="form-group">
+                        <label for="slackNotificationEnabled">SLACK通知:</label>
+                        <select id="slackNotificationEnabled" name="slackNotificationEnabled" class="form-control">
+                            <option value="true" th:selected="${breakSettings.slackNotificationEnabled == true}">ON</option>
+                            <option value="false" th:selected="${breakSettings.slackNotificationEnabled == false or breakSettings.slackNotificationEnabled == null}">OFF</option>
+                        </select>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            Slack通知機能の有効/無効を設定します。
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logSlackWebhookUrl">SLACKのログチャンネルのWebhookURL:</label>
+                        <input type="url" 
+                               id="logSlackWebhookUrl" 
+                               name="logSlackWebhookUrl" 
+                               class="form-control" 
+                               th:value="${breakSettings.logSlackWebhookUrl}"
+                               placeholder="https://hooks.slack.com/services/...">
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            打刻ログを送信するSlackチャンネルのWebhook URLを設定します。
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="alertSlackWebhookUrl">SLACKの異常・修正依頼通知用のWebhookURL:</label>
+                        <input type="url" 
+                               id="alertSlackWebhookUrl" 
+                               name="alertSlackWebhookUrl" 
+                               class="form-control" 
+                               th:value="${breakSettings.alertSlackWebhookUrl}"
+                               placeholder="https://hooks.slack.com/services/...">
+                        <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            異常検知や修正依頼の通知を送信するSlackチャンネルのWebhook URLを設定します。
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn-primary">Slack通知設定を保存</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 勤務設定 -->
+            <section class="card settings-section" th:if="${canManageUsers}">
+                <h2>勤務設定</h2>
+                <p style="color: #666; margin-bottom: 15px;">各従業員の勤務形態と始業時間を設定できます。</p>
+                
+                <!-- ユーザー検索 -->
+                <div style="margin-bottom: 20px;">
+                    <label for="userSearchInput" style="font-weight: 600; margin-right: 10px;">従業員を検索:</label>
+                    <input type="text" 
+                           id="userSearchInput" 
+                           placeholder="ユーザー名で検索..." 
+                           style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 300px; font-size: 14px;">
+                    <button type="button" 
+                            id="clearSearchBtn" 
+                            class="btn-secondary" 
+                            style="padding: 8px 15px; margin-left: 10px; display: none;">クリア</button>
+                </div>
+                
+                <table class="user-work-settings-table">
+                    <thead>
+                        <tr>
+                            <th>従業員名</th>
+                            <th>勤務形態</th>
+                            <th>始業時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr th:each="user : ${users}" 
+                            th:if="${user.role != 'ADMIN'}"
+                            th:attr="data-username=${user.username}"
+                            class="user-row">
+                            <td>
+                                <strong th:text="${user.username}"></strong>
+                            </td>
+                            <td>
+                                <span th:if="${user.workType == 'FULLTIME'}" class="work-type-badge work-type-fulltime">フルタイム</span>
+                                <span th:if="${user.workType == 'FLEX'}" class="work-type-badge work-type-flex">フレックス</span>
+                                <span th:if="${user.workType == null}" class="work-type-badge work-type-fulltime">フルタイム（デフォルト）</span>
+                            </td>
+                            <td>
+                                <span th:if="${user.workType == 'FULLTIME' or user.workType == null}">
+                                    <span th:if="${user.startTime != null}" th:text="${#temporals.format(user.startTime, 'HH:mm')}"></span>
+                                    <span th:if="${user.startTime == null}" style="color: #999;">09:00</span>
+                                </span>
+                                <span th:if="${user.workType == 'FLEX'}">
+                                    <span th:if="${user.coreTimeStart != null and user.coreTimeEnd != null}" 
+                                          th:text="${#temporals.format(user.coreTimeStart, 'HH:mm') + ' ～ ' + #temporals.format(user.coreTimeEnd, 'HH:mm')}"></span>
+                                    <span th:if="${user.coreTimeStart == null or user.coreTimeEnd == null}" style="color: #999;">未設定</span>
+                                </span>
+                            </td>
+                            <td>
+                                <button type="button" 
+                                        class="btn-secondary work-settings-btn" 
+                                        style="padding: 5px 10px; font-size: 0.9em;"
+                                        th:data-user-id="${user.id}"
+                                        th:data-username="${user.username}"
+                                        th:data-work-type="${user.workType != null ? user.workType : 'FULLTIME'}"
+                                        th:data-start-time="${user.startTime != null ? #temporals.format(user.startTime, 'HH:mm') : '09:00'}"
+                                        th:data-core-time-start="${user.coreTimeStart != null ? #temporals.format(user.coreTimeStart, 'HH:mm') : '10:00'}"
+                                        th:data-core-time-end="${user.coreTimeEnd != null ? #temporals.format(user.coreTimeEnd, 'HH:mm') : '15:00'}">⚙️ 編集</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+
+    <!-- 勤務設定モーダル -->
+    <div id="workSettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">勤務設定</h2>
+            <p>ユーザー: <strong id="workSettingsUsername"></strong></p>
+            
+            <form id="workSettingsForm" method="post" style="display: flex; flex-direction: column; gap: 20px;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" id="workSettingsUserId" name="userId">
+                
+                <div>
+                    <label for="workType" style="display: block; margin-bottom: 10px; font-weight: 600;">勤務形態:</label>
+                    <select id="workType" name="workType" class="form-control" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="FULLTIME">フルタイム</option>
+                        <option value="FLEX">フレックス</option>
+                    </select>
+                </div>
+                
+                <div id="startTimeGroup">
+                    <label for="startTime" style="display: block; margin-bottom: 10px; font-weight: 600;">始業時間:</label>
+                    <input type="time" id="startTime" name="startTime" class="form-control" 
+                           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                           value="09:00">
+                    <small style="color: #666; font-size: 0.85em;">フルタイムの場合の始業時間を設定します</small>
+                </div>
+                
+                <div id="coreTimeGroup" style="display: none;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">コアタイム:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div>
+                            <label for="coreTimeStart" style="display: block; margin-bottom: 5px; font-size: 0.9em;">開始時刻:</label>
+                            <input type="time" id="coreTimeStart" name="coreTimeStart" class="form-control" 
+                                   style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                                   value="10:00">
+                        </div>
+                        <div>
+                            <label for="coreTimeEnd" style="display: block; margin-bottom: 5px; font-size: 0.9em;">終了時刻:</label>
+                            <input type="time" id="coreTimeEnd" name="coreTimeEnd" class="form-control" 
+                                   style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                                   value="15:00">
+                        </div>
+                    </div>
+                    <small style="color: #666; font-size: 0.85em;">フレックスの場合、必ず在席していなければならない時間帯を設定します</small>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" onclick="closeWorkSettingsModal()" class="btn-secondary" style="padding: 8px 20px;">キャンセル</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 休憩入力方式が「昼休憩固定時間」の場合、固定時間入力欄を表示
+        const breakInputMode = document.getElementById('breakInputMode');
+        if (breakInputMode) {
+            breakInputMode.addEventListener('change', function() {
+                const lunchBreakGroup = document.getElementById('lunchBreakTimeGroup');
+                if (this.value === 'FIXED_LUNCH') {
+                    lunchBreakGroup.style.display = 'block';
+                } else {
+                    lunchBreakGroup.style.display = 'none';
+                }
+            });
+
+            // ページ読み込み時に初期状態を設定
+            window.addEventListener('DOMContentLoaded', function() {
+                const lunchBreakGroup = document.getElementById('lunchBreakTimeGroup');
+                if (breakInputMode.value === 'FIXED_LUNCH') {
+                    lunchBreakGroup.style.display = 'block';
+                }
+            });
+        }
+
+        // 勤務設定ボタンのイベント処理（イベント委譲）
+        document.addEventListener('click', function(e) {
+            const workSettingsBtn = e.target.closest('.work-settings-btn');
+            if (workSettingsBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const userId = workSettingsBtn.getAttribute('data-user-id');
+                const username = workSettingsBtn.getAttribute('data-username');
+                const workType = workSettingsBtn.getAttribute('data-work-type') || 'FULLTIME';
+                const startTime = workSettingsBtn.getAttribute('data-start-time') || '09:00';
+                const coreTimeStart = workSettingsBtn.getAttribute('data-core-time-start') || '10:00';
+                const coreTimeEnd = workSettingsBtn.getAttribute('data-core-time-end') || '15:00';
+                
+                showWorkSettingsModal(userId, username, workType, startTime, coreTimeStart, coreTimeEnd);
+            }
+        });
+
+        function showWorkSettingsModal(userId, username, workType, startTime, coreTimeStart, coreTimeEnd) {
+            const modal = document.getElementById('workSettingsModal');
+            const userIdInput = document.getElementById('workSettingsUserId');
+            const usernameElement = document.getElementById('workSettingsUsername');
+            const workTypeSelect = document.getElementById('workType');
+            const startTimeInput = document.getElementById('startTime');
+            const startTimeGroup = document.getElementById('startTimeGroup');
+            const coreTimeStartInput = document.getElementById('coreTimeStart');
+            const coreTimeEndInput = document.getElementById('coreTimeEnd');
+            const coreTimeGroup = document.getElementById('coreTimeGroup');
+            const form = document.getElementById('workSettingsForm');
+            
+            if (!modal || !userIdInput || !usernameElement || !workTypeSelect || !startTimeInput || !startTimeGroup || !coreTimeStartInput || !coreTimeEndInput || !coreTimeGroup || !form) {
+                console.error('Modal elements not found');
+                return;
+            }
+            
+            userIdInput.value = userId;
+            usernameElement.textContent = username;
+            workTypeSelect.value = workType;
+            startTimeInput.value = startTime || '09:00';
+            coreTimeStartInput.value = coreTimeStart || '10:00';
+            coreTimeEndInput.value = coreTimeEnd || '15:00';
+            
+            // フォームのactionを設定
+            form.action = '/admin/users/' + userId + '/work-settings';
+            
+            // フルタイムの場合のみ始業時間を表示
+            if (workType === 'FULLTIME') {
+                startTimeGroup.style.display = 'block';
+                coreTimeGroup.style.display = 'none';
+            } else {
+                startTimeGroup.style.display = 'none';
+                coreTimeGroup.style.display = 'block';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function closeWorkSettingsModal() {
+            document.getElementById('workSettingsModal').style.display = 'none';
+        }
+
+        // 勤務形態の変更時に始業時間入力欄の表示/非表示を切り替え
+        document.addEventListener('DOMContentLoaded', function() {
+            const workTypeSelect = document.getElementById('workType');
+            const startTimeGroup = document.getElementById('startTimeGroup');
+            
+            const coreTimeGroup = document.getElementById('coreTimeGroup');
+            
+            if (workTypeSelect && startTimeGroup && coreTimeGroup) {
+                workTypeSelect.addEventListener('change', function() {
+                    if (this.value === 'FULLTIME') {
+                        startTimeGroup.style.display = 'block';
+                        coreTimeGroup.style.display = 'none';
+                    } else {
+                        startTimeGroup.style.display = 'none';
+                        coreTimeGroup.style.display = 'block';
+                    }
+                });
+            }
+
+            // 勤務設定モーダル外をクリックで閉じる
+            const workSettingsModal = document.getElementById('workSettingsModal');
+            if (workSettingsModal) {
+                workSettingsModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeWorkSettingsModal();
+                    }
+                });
+            }
+        });
+
+        // ユーザー検索機能
+        const userSearchInput = document.getElementById('userSearchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const userRows = document.querySelectorAll('.user-row');
+
+        if (userSearchInput) {
+            userSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                let visibleCount = 0;
+
+                userRows.forEach(function(row) {
+                    const username = row.getAttribute('data-username') || '';
+                    if (username.toLowerCase().includes(searchTerm)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                // 検索中はクリアボタンを表示
+                if (searchTerm.length > 0) {
+                    clearSearchBtn.style.display = 'inline-block';
+                } else {
+                    clearSearchBtn.style.display = 'none';
+                }
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                userSearchInput.value = '';
+                userRows.forEach(function(row) {
+                    row.style.display = '';
+                });
+                this.style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>

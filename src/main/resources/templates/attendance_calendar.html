@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠カレンダー - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>勤怠カレンダー</h1>
+            <div class="user-info">
+                <span th:text="${username}">ユーザー名</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;" sec:authorize="hasAuthority('ADMIN')">管理画面へ</a>
+                <a th:href="@{/employee/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="card">
+                <!-- 月ナビゲーション -->
+                <div class="calendar-nav">
+                    <a th:href="@{/calendar(year=${prevYear}, month=${prevMonth})}" class="btn-secondary">← 前月</a>
+                    <h2 th:text="${year + '年 ' + month + '月'}">年月</h2>
+                    <a th:href="@{/calendar(year=${nextYear}, month=${nextMonth})}" class="btn-secondary">次月 →</a>
+                </div>
+
+                <!-- 凡例 -->
+                <div class="calendar-legend">
+                    <span class="legend-item"><span class="legend-color normal"></span> 通常勤務</span>
+                    <span class="legend-item"><span class="legend-color overtime"></span> 残業あり</span>
+                    <span class="legend-item"><span class="legend-color incomplete"></span> 未完了</span>
+                    <span class="legend-item"><span class="legend-color absent"></span> 欠勤</span>
+                </div>
+
+                <!-- カレンダー -->
+                <table class="calendar-table">
+                    <thead>
+                        <tr>
+                            <th>月</th>
+                            <th>火</th>
+                            <th>水</th>
+                            <th>木</th>
+                            <th>金</th>
+                            <th class="weekend">土</th>
+                            <th class="weekend">日</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="week : ${weeks}">
+                            <td th:each="day : ${week}"
+                                th:class="${day == null ? 'calendar-empty' :
+                                          (day.hasAttendance() ? 'calendar-day ' + day.status : 'calendar-day')}"
+                                th:title="${day != null && day.hasAttendance() ?
+                                          '勤務時間: ' + #numbers.formatDecimal(day.workHours, 1, 1) + 'h' : ''}"
+                                th:attr="data-has-attendance=${day != null && day.hasAttendance()},
+                                         data-attendance-id=${day != null && day.hasAttendance() ? day.attendance.id : ''},
+                                         data-check-in=${day != null && day.hasAttendance() && day.attendance.checkIn != null ? #temporals.format(day.attendance.checkIn, 'yyyy-MM-dd HH:mm') : ''},
+                                         data-check-out=${day != null && day.hasAttendance() && day.attendance.checkOut != null ? #temporals.format(day.attendance.checkOut, 'yyyy-MM-dd HH:mm') : ''},
+                                         data-work-hours=${day != null && day.hasAttendance() ? #numbers.formatDecimal(day.workHours, 1, 1) : ''},
+                                         data-status=${day != null && day.hasAttendance() ? day.status : ''},
+                                         data-day=${day != null ? day.day : ''}">
+                                <div th:if="${day != null}" class="day-content">
+                                    <div class="day-number" th:text="${day.day}">1</div>
+                                    <div th:if="${day.hasAttendance()}" class="day-info">
+                                        <div th:text="${#numbers.formatDecimal(day.workHours, 1, 1) + 'h'}">0h</div>
+                                        <div class="day-status" th:text="${day.status == 'overtime' ? '残業' :
+                                                                           day.status == 'incomplete' ? '未完' :
+                                                                           day.status == 'normal' ? '通常' : ''}"></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+
+    <!-- モーダルポップアップ -->
+    <div id="attendanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalDate">勤怠詳細</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="detail-section">
+                    <h3>出退勤情報</h3>
+                    <div class="detail-item">
+                        <span class="detail-label">出勤時刻:</span>
+                        <span id="modalCheckIn" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">退勤時刻:</span>
+                        <span id="modalCheckOut" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">勤務時間:</span>
+                        <span id="modalWorkHours" class="detail-value">-</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h3>休憩情報</h3>
+                    <div id="modalBreaks">
+                        <p style="color: #999;">休憩記録がありません</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close-btn">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .calendar-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .legend-color.normal {
+            background-color: #3498db;
+        }
+
+        .legend-color.overtime {
+            background-color: #e74c3c;
+        }
+
+        .legend-color.incomplete {
+            background-color: #f39c12;
+        }
+
+        .legend-color.absent {
+            background-color: #95a5a6;
+        }
+
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .calendar-table th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .calendar-table th.weekend {
+            background-color: #e74c3c;
+        }
+
+        .calendar-table td {
+            border: 1px solid #ddd;
+            padding: 0;
+            height: 100px;
+            vertical-align: top;
+            position: relative;
+        }
+
+        .calendar-empty {
+            background-color: #f8f9fa;
+        }
+
+        .calendar-day {
+            background-color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .calendar-day:hover {
+            background-color: #ecf0f1;
+        }
+
+        .calendar-day.normal {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+
+        .calendar-day.overtime {
+            background-color: rgba(231, 76, 60, 0.1);
+        }
+
+        .calendar-day.incomplete {
+            background-color: rgba(243, 156, 18, 0.1);
+        }
+
+        .calendar-day.absent {
+            background-color: rgba(149, 165, 166, 0.1);
+        }
+
+        .day-content {
+            padding: 8px;
+            height: 100%;
+        }
+
+        .day-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .day-info {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .day-status {
+            font-size: 11px;
+            margin-top: 3px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .calendar-day.overtime .day-status {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .calendar-day.normal .day-status {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .calendar-day.incomplete .day-status {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        /* モーダルスタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .modal-close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+
+        .modal-close:hover,
+        .modal-close:focus {
+            color: #ecf0f1;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 18px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #7f8c8d;
+            min-width: 120px;
+        }
+
+        .detail-value {
+            color: #2c3e50;
+            text-align: right;
+        }
+
+        .break-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+
+        .break-item-header {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .break-item-time {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+            text-align: right;
+        }
+
+        .modal-close-btn {
+            padding: 8px 20px;
+        }
+    </style>
+
+    <script>
+        // モーダルの表示/非表示
+        const modal = document.getElementById('attendanceModal');
+        const closeButtons = document.querySelectorAll('.modal-close, .modal-close-btn');
+
+        // カレンダーの日付をクリックしたとき
+        document.querySelectorAll('.calendar-day').forEach(cell => {
+            if (cell.getAttribute('data-has-attendance') === 'true') {
+                cell.addEventListener('click', function() {
+                    const day = this.getAttribute('data-day');
+                    const checkIn = this.getAttribute('data-check-in') || '-';
+                    const checkOut = this.getAttribute('data-check-out') || '-';
+                    const workHours = this.getAttribute('data-work-hours') || '0';
+                    const status = this.getAttribute('data-status');
+                    const attendanceId = this.getAttribute('data-attendance-id');
+
+                    // モーダルにデータを設定
+                    document.getElementById('modalDate').textContent = year + '年' + month + '月' + day + '日 勤怠詳細';
+                    document.getElementById('modalCheckIn').textContent = checkIn;
+                    document.getElementById('modalCheckOut').textContent = checkOut;
+                    document.getElementById('modalWorkHours').textContent = workHours + '時間';
+
+                    // 休憩情報を取得（APIから取得するか、data属性から取得）
+                    loadBreakRecords(attendanceId);
+
+                    // モーダルを表示
+                    modal.style.display = 'block';
+                });
+            }
+        });
+
+        // 休憩記録を読み込む（APIから取得）
+        function loadBreakRecords(attendanceId) {
+            const breaksContainer = document.getElementById('modalBreaks');
+            breaksContainer.innerHTML = '<p style="color: #999;">休憩記録を読み込み中...</p>';
+            
+            // APIから取得（従業員用は/api/、管理者用は/admin/api/）
+            const apiPath = window.location.pathname.includes('/admin/') 
+                ? '/admin/api/attendance/' + attendanceId + '/details'
+                : '/calendar/api/attendance/' + attendanceId + '/details';
+            fetch(apiPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('データの取得に失敗しました');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.breaks && data.breaks.length > 0) {
+                        let html = '';
+                        data.breaks.forEach((breakRecord, index) => {
+                            const breakTypeLabel = breakRecord.type === 'FIXED_LUNCH' ? '昼休憩' : '休憩';
+                            const breakMinutes = breakRecord.minutes || 0;
+                            const breakHours = (breakMinutes / 60).toFixed(1);
+                            html += `
+                                <div class="break-item">
+                                    <div class="break-item-header">${breakTypeLabel} ${index + 1}</div>
+                                    <div class="break-item-time">
+                                        開始: ${breakRecord.start || '-'}<br>
+                                        終了: ${breakRecord.end || '-'}<br>
+                                        時間: ${breakHours}時間
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        breaksContainer.innerHTML = html;
+                    } else {
+                        breaksContainer.innerHTML = '<p style="color: #999;">休憩記録がありません</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    breaksContainer.innerHTML = '<p style="color: #e74c3c;">データの取得に失敗しました</p>';
+                });
+        }
+
+        // モーダルを閉じる
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+        });
+
+        // モーダルの外側をクリックしたときも閉じる
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // 年と月の変数を取得（Thymeleafから）
+        const year = /*[[${year}]]*/ new Date().getFullYear();
+        const month = /*[[${month}]]*/ new Date().getMonth() + 1;
+    </script>
+</body>
+</html>

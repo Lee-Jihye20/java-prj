@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>評価管理 - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .evaluation-section {
+            margin-bottom: 30px;
+        }
+        .week-info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .evaluation-form {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .rating-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .rating-btn {
+            padding: 8px 20px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .rating-btn:hover {
+            background-color: #f0f0f0;
+        }
+        .rating-btn.selected {
+            border-color: #3498db;
+            background-color: #3498db;
+            color: white;
+        }
+        .rating-btn.rating-s.selected {
+            background-color: #e74c3c;
+            border-color: #e74c3c;
+        }
+        .rating-btn.rating-a.selected {
+            background-color: #f39c12;
+            border-color: #f39c12;
+        }
+        .rating-btn.rating-b.selected {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+        .rating-btn.rating-c.selected {
+            background-color: #95a5a6;
+            border-color: #95a5a6;
+        }
+        .rating-btn.rating-d.selected {
+            background-color: #34495e;
+            border-color: #34495e;
+        }
+        .comment-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+        .past-evaluation-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .past-evaluation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .rating-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .rating-badge.rating-s {
+            background-color: #e74c3c;
+        }
+        .rating-badge.rating-a {
+            background-color: #f39c12;
+        }
+        .rating-badge.rating-b {
+            background-color: #3498db;
+        }
+        .rating-badge.rating-c {
+            background-color: #95a5a6;
+        }
+        .rating-badge.rating-d {
+            background-color: #34495e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>評価管理</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div th:if="${successMessage}" class="success-message">
+            <p th:text="${successMessage}">処理が完了しました</p>
+        </div>
+
+        <div th:if="${errorMessage}" class="error-message">
+            <p th:text="${errorMessage}">エラーが発生しました</p>
+        </div>
+
+        <div class="dashboard-content">
+            <!-- 週選択と評価 -->
+            <section class="card evaluation-section">
+                <h2>評価</h2>
+                <div class="week-info" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <label for="weekSelect" style="margin-right: 10px; font-weight: 600;">評価する週を選択:</label>
+                        <select id="weekSelect" class="form-control" style="display: inline-block; width: auto; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option th:each="week : ${availableWeeks}" 
+                                    th:value="${week.toString()}"
+                                    th:text="${#temporals.format(week, 'yyyy年MM月dd日') + ' ～ ' + #temporals.format(week.plusDays(6), 'yyyy年MM月dd日')}"
+                                    th:selected="${week.equals(weekStart)}"></option>
+                        </select>
+                    </div>
+                    <div>
+                        <strong th:text="${#temporals.format(weekStart, 'yyyy年MM月dd日') + ' ～ ' + #temporals.format(weekEnd, 'yyyy年MM月dd日')}"></strong>
+                    </div>
+                </div>
+
+                <!-- ユーザー選択ドロップダウン -->
+                <div style="margin-bottom: 20px;">
+                    <label for="userSelect" style="font-weight: 600; margin-right: 10px;">評価する従業員を選択:</label>
+                    <select id="userSelect" class="form-control" style="display: inline-block; width: auto; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+                        <option value="">-- 従業員を選択してください --</option>
+                        <option th:each="user : ${users}" 
+                                th:if="${user.role != 'ADMIN'}"
+                                th:value="${user.id}"
+                                th:text="${user.username}"></option>
+                    </select>
+                </div>
+                
+                <!-- 評価フォーム（初期状態では非表示） -->
+                <div th:each="user : ${users}" th:if="${user.role != 'ADMIN'}">
+                    <div class="evaluation-form user-evaluation-form" th:id="'evaluation-form_' + ${user.id}" style="display: none;">
+                        <h3 style="margin-top: 0;" th:text="${user.username}"></h3>
+                        <form th:action="@{/admin/evaluations/save}" method="post" class="evaluation-form-element">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <input type="hidden" name="employeeId" th:value="${user.id}">
+                            <input type="hidden" name="weekStartDate" th:value="${selectedWeekStart}" class="week-start-input">
+                            
+                            <label>評価:</label>
+                            <div class="rating-buttons" th:id="'rating-buttons_' + ${user.id}">
+                                <button type="button" class="rating-btn rating-s" data-rating="S" th:attr="data-user-id=${user.id}">S</button>
+                                <button type="button" class="rating-btn rating-a" data-rating="A" th:attr="data-user-id=${user.id}">A</button>
+                                <button type="button" class="rating-btn rating-b" data-rating="B" th:attr="data-user-id=${user.id}">B</button>
+                                <button type="button" class="rating-btn rating-c" data-rating="C" th:attr="data-user-id=${user.id}">C</button>
+                                <button type="button" class="rating-btn rating-d" data-rating="D" th:attr="data-user-id=${user.id}">D</button>
+                            </div>
+                            <input type="hidden" th:id="'rating_' + ${user.id}" name="rating" th:value="${currentWeekEvaluations != null and currentWeekEvaluations.containsKey(user.id) ? currentWeekEvaluations.get(user.id).rating : 'B'}">
+                            
+                            <label style="display: block; margin-top: 15px;">コメント:</label>
+                            <textarea th:id="'comment_' + ${user.id}" name="comment" class="comment-textarea" 
+                                      th:text="${currentWeekEvaluations != null and currentWeekEvaluations.containsKey(user.id) and currentWeekEvaluations.get(user.id).comment != null ? currentWeekEvaluations.get(user.id).comment : ''}"></textarea>
+                            
+                            <div style="margin-top: 15px;">
+                                <button type="submit" class="btn-primary">保存</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 過去の評価 -->
+            <section class="card evaluation-section">
+                <h2>過去の評価</h2>
+                <div th:if="${pastEvaluations.isEmpty()}">
+                    <p style="color: #999;">過去の評価はありません</p>
+                </div>
+                <div th:each="evaluation : ${pastEvaluations}" class="past-evaluation-item">
+                    <div class="past-evaluation-header">
+                        <div>
+                            <strong th:text="${evaluation.employee.username}"></strong>
+                            <span style="margin-left: 10px; color: #666;" 
+                                  th:text="${#temporals.format(evaluation.weekStartDate, 'yyyy年MM月dd日') + ' ～ ' + #temporals.format(evaluation.weekEndDate, 'yyyy年MM月dd日')}"></span>
+                        </div>
+                        <span class="rating-badge" 
+                              th:classappend="'rating-' + ${evaluation.rating.toLowerCase()}"
+                              th:text="${evaluation.rating}"></span>
+                    </div>
+                    <p th:if="${evaluation.comment}" style="color: #666; margin-top: 10px;" th:text="${evaluation.comment}"></p>
+                    <small style="color: #999; display: block; margin-top: 5px;">
+                        評価者: <span th:text="${evaluation.evaluator.username}"></span> | 
+                        評価日: <span th:text="${#temporals.format(evaluation.createdAt, 'yyyy年MM月dd日 HH:mm')}"></span>
+                    </small>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 既存の評価を選択状態にする
+            const ratingButtons = document.querySelectorAll('.rating-btn');
+            ratingButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    const rating = this.getAttribute('data-rating');
+                    
+                    // 同じユーザーの評価ボタンから選択を解除
+                    const form = this.closest('form');
+                    const buttons = form.querySelectorAll('.rating-btn');
+                    buttons.forEach(function(btn) {
+                        btn.classList.remove('selected');
+                    });
+                    
+                    // 選択したボタンを強調
+                    this.classList.add('selected');
+                    
+                    // 隠しフィールドに値を設定
+                    const ratingInput = document.getElementById('rating_' + userId);
+                    if (ratingInput) {
+                        ratingInput.value = rating;
+                    }
+                });
+            });
+            
+            // 既存の評価を選択状態にする
+            const ratingInputs = document.querySelectorAll('input[type="hidden"][name="rating"]');
+            ratingInputs.forEach(function(input) {
+                const userId = input.id.replace('rating_', '');
+                const rating = input.value;
+                if (rating) {
+                    const button = document.querySelector('.rating-btn[data-rating="' + rating + '"][data-user-id="' + userId + '"]');
+                    if (button) {
+                        button.classList.add('selected');
+                    }
+                }
+            });
+
+            // 週選択の変更時にページをリロード
+            const weekSelect = document.getElementById('weekSelect');
+            if (weekSelect) {
+                weekSelect.addEventListener('change', function() {
+                    const selectedWeek = this.value;
+                    if (selectedWeek) {
+                        window.location.href = '/admin/evaluations?selectedWeekStart=' + encodeURIComponent(selectedWeek);
+                    }
+                });
+            }
+
+            // ユーザー選択の変更時に評価フォームを表示/非表示
+            const userSelect = document.getElementById('userSelect');
+            if (userSelect) {
+                userSelect.addEventListener('change', function() {
+                    const selectedUserId = this.value;
+                    
+                    // すべての評価フォームを非表示
+                    const allForms = document.querySelectorAll('.user-evaluation-form');
+                    allForms.forEach(function(form) {
+                        form.style.display = 'none';
+                    });
+                    
+                    // 選択されたユーザーのフォームのみ表示
+                    if (selectedUserId) {
+                        const selectedForm = document.getElementById('evaluation-form_' + selectedUserId);
+                        if (selectedForm) {
+                            selectedForm.style.display = 'block';
+                            
+                            // 既存の評価を選択状態にする
+                            const userId = selectedUserId;
+                            const ratingInput = document.getElementById('rating_' + userId);
+                            if (ratingInput) {
+                                const rating = ratingInput.value;
+                                if (rating) {
+                                    const button = document.querySelector('.rating-btn[data-rating="' + rating + '"][data-user-id="' + userId + '"]');
+                                    if (button) {
+                                        // 同じフォーム内のボタンから選択を解除
+                                        const form = button.closest('form');
+                                        const buttons = form.querySelectorAll('.rating-btn');
+                                        buttons.forEach(function(btn) {
+                                            btn.classList.remove('selected');
+                                        });
+                                        // 選択したボタンを強調
+                                        button.classList.add('selected');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

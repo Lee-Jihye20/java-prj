@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作履歴（ログ） - 勤怠管理システム</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 操作履歴（ログ）</h1>
+            <div class="user-info">
+                <span th:text="${username}">管理者</span>
+                <a th:href="@{/admin/users}" class="btn-secondary" style="margin-left: 10px;">社員一覧</a>
+                <a th:href="@{/admin/dashboard}" class="btn-secondary" style="margin-left: 10px;">ダッシュボードに戻る</a>
+                <form th:action="@{/logout}" method="post" style="display: inline;">
+                    <button type="submit" class="btn-secondary" style="margin-left: 10px;">ログアウト</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="card">
+                <h2 th:if="${targetUsername == null}">このアカウントで行った最近の操作</h2>
+                <h2 th:if="${targetUsername != null}"><span th:text="${targetUsername}"></span> の操作履歴</h2>
+                <p style="color: #666; margin-bottom: 15px; font-size: 0.9em;">
+                    管理者として実行した操作の履歴です（直近100件）
+                </p>
+                <div class="table-wrapper">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>操作種別</th>
+                                <th>対象</th>
+                                <th>詳細</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="action : ${actions}">
+                                <td th:text="${action.createdAt != null ? #temporals.format(action.createdAt, 'yyyy-MM-dd HH:mm:ss') : '-'}"></td>
+                                <td><span th:text="${action.actionTypeInJapanese}"></span></td>
+                                <td>
+                                    <span th:if="${action.targetType == 'USER'}">ユーザー ID: <span th:text="${action.targetId}"></span></span>
+                                    <span th:if="${action.targetType == 'FIX_REQUEST'}">修正依頼 ID: <span th:text="${action.targetId}"></span></span>
+                                    <span th:if="${action.targetType == 'ANOMALY_APPROVAL'}">異常検知 勤怠ID: <span th:text="${action.targetId}"></span></span>
+                                    <span th:if="${action.targetType == null or (action.targetType != 'USER' and action.targetType != 'FIX_REQUEST' and action.targetType != 'ANOMALY_APPROVAL')}">-</span>
+                                </td>
+                                <td th:text="${action.detail != null ? action.detail : '-'}" style="max-width: 300px; word-break: break-all;"></td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(actions)}">
+                                <td colspan="4" style="text-align: center; color: #999;">操作履歴はありません</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
