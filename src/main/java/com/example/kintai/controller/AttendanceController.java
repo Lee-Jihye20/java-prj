@@ -48,9 +48,6 @@ public class AttendanceController {
     @Autowired
     private PermissionService permissionService;
 
-    /**
-     * 出勤打刻
-     */
     @PostMapping("/check-in")
     public String checkIn(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -64,9 +61,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 退勤打刻
-     */
     @PostMapping("/check-out")
     public String checkOut(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -80,9 +74,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 休憩開始打刻
-     */
     @PostMapping("/break-start")
     public String breakStart(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -96,9 +87,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 休憩終了打刻
-     */
     @PostMapping("/break-end")
     public String breakEnd(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -112,9 +100,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 中抜け開始打刻
-     */
     @PostMapping("/leave-start")
     public String leaveStart(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -128,9 +113,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 中抜け終了打刻
-     */
     @PostMapping("/leave-end")
     public String leaveEnd(Authentication authentication, RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
@@ -144,19 +126,15 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 勤怠履歴表示
-     */
     @GetMapping("/history")
     public String history(Authentication authentication, Model model) {
         User user = getUserFromAuth(authentication);
         List<Attendance> attendances = attendanceService.getAttendanceHistory(user.getId());
 
-        // 各勤怠の中抜け一覧
         Map<Long, List<com.example.kintai.entity.LeaveRecord>> leaveRecordsMap = new HashMap<>();
-        // 各勤怠の休憩記録一覧
+        
         Map<Long, List<com.example.kintai.entity.BreakRecord>> breakRecordsMap = new HashMap<>();
-        // 各勤怠の実働時間（時間）。出退勤ありの場合のみ計算（出退勤差 − 休憩 − 中抜け控除）
+        
         Map<Long, Double> workHoursMap = new HashMap<>();
         for (Attendance attendance : attendances) {
             leaveRecordsMap.put(attendance.getId(), leaveRecordService.getLeaveRecordsByAttendanceId(attendance.getId()));
@@ -179,9 +157,6 @@ public class AttendanceController {
         return "attendance_history";
     }
 
-    /**
-     * 修正依頼フォーム表示（overtime=1 のときは残業超過用、missingCheckout=1 のときは退勤未打刻用の申請種別を表示）
-     */
     @GetMapping("/fix-request/{attendanceId}")
     public String fixRequestForm(@PathVariable Long attendanceId,
                                    @RequestParam(required = false) String overtime,
@@ -195,7 +170,6 @@ public class AttendanceController {
             return "redirect:/attendance/history?error=invalid";
         }
 
-        // 中抜け記録を取得（LeaveRecordService に集約）
         List<com.example.kintai.entity.LeaveRecord> leaveRecords = 
             leaveRecordService.getLeaveRecordsByAttendanceId(attendance.get().getId());
 
@@ -207,9 +181,6 @@ public class AttendanceController {
         return "fix_request_form";
     }
 
-    /**
-     * 修正依頼送信
-     */
     @PostMapping("/fix-request")
     public String submitFixRequest(@RequestParam Long attendanceId,
                                      @RequestParam String requestType,
@@ -222,7 +193,7 @@ public class AttendanceController {
                                      RedirectAttributes redirectAttributes) {
         User user = getUserFromAuth(authentication);
         try {
-            // 時刻の修正依頼の場合、日付のバリデーション（2000年～2099年）
+            
             if (newValue != null && (newValue.getYear() < 2000 || newValue.getYear() > 2099)) {
                 redirectAttributes.addFlashAttribute("errorMessage", "年は2000年から2099年の範囲で入力してください");
                 return "redirect:/attendance/history";
@@ -232,13 +203,12 @@ public class AttendanceController {
                 return "redirect:/attendance/history";
             }
 
-            // 理由付き残業申請の場合は newValue / newLeaveType 不要
             if ("OVERTIME_APPLICATION".equals(requestType)) {
                 fixRequestService.createFixRequest(attendanceId, user.getId(), requestType, null, leaveRecordId, newLeaveType, reason);
                 redirectAttributes.addFlashAttribute("successMessage", "修正依頼を送信しました");
                 return "redirect:/attendance/fix-request-list";
             }
-            // 出勤・退勤／開始・終了を一度に申請する場合は newValue と newValue2 両方必須
+            
             if ("CHECK_IN_AND_OUT".equals(requestType) || "BREAK_START_AND_END".equals(requestType)) {
                 if (newValue == null || newValue2 == null) {
                     redirectAttributes.addFlashAttribute("errorMessage", "開始・終了の両方を入力してください");
@@ -262,9 +232,6 @@ public class AttendanceController {
         }
     }
 
-    /**
-     * 修正依頼一覧
-     */
     @GetMapping("/fix-request-list")
     public String fixRequestList(Authentication authentication, Model model,
                                   @RequestParam(required = false) String requestType,
@@ -289,9 +256,6 @@ public class AttendanceController {
         return "fix_request_list";
     }
 
-    /**
-     * ログページ表示（管理者のみ）
-     */
     @GetMapping("/logs")
     public String logsPage(Authentication authentication, 
                            @RequestParam(required = false) String startDate,
@@ -299,16 +263,13 @@ public class AttendanceController {
                            Model model) {
         User user = getUserFromAuth(authentication);
         
-        // 権限チェック：ログ閲覧権限が必要
         if (!permissionService.hasPermission(user, "VIEW_LOG")) {
             return "redirect:/employee/dashboard";
         }
         
-        // デフォルトの期間（過去30日間）
         LocalDate end = endDate != null ? LocalDate.parse(endDate) : LocalDate.now();
         LocalDate start = startDate != null ? LocalDate.parse(startDate) : end.minusDays(30);
         
-        // 打刻ログを取得（全社員）
         List<AttendanceLogDTO> logs = exportService.getAttendanceLogs(user.getCompany().getId(), start, end);
         
         model.addAttribute("logs", logs);
@@ -320,9 +281,6 @@ public class AttendanceController {
         return "logs_page";
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         return (User) authentication.getPrincipal();
     }

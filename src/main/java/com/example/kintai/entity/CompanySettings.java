@@ -28,7 +28,6 @@ public class CompanySettings {
     @Column(name = "attendance_slack_webhook_url")
     private String attendanceSlackWebhookUrl;
 
-    // Slack通知設定
     @Column(name = "slack_notification_enabled")
     private Boolean slackNotificationEnabled = false;
 
@@ -38,27 +37,23 @@ public class CompanySettings {
     @Column(name = "alert_slack_webhook_url")
     private String alertSlackWebhookUrl;
 
-    // 休憩設定
     @Column(name = "break_count_limit")
-    private Integer breakCountLimit = 1; // 1回, 2回, -1(無制限)
+    private Integer breakCountLimit = 1; 
 
     @Column(name = "break_input_mode", length = 20)
-    private String breakInputMode = "FREE"; // FREE, FIXED_LUNCH
+    private String breakInputMode = "FREE"; 
 
     @Column(name = "auto_calculate_break_time")
-    private Boolean autoCalculateBreakTime = true; // ON/OFF
+    private Boolean autoCalculateBreakTime = true; 
 
     @Column(name = "lunch_break_start_time")
-    private LocalTime lunchBreakStartTime; // 昼休憩開始時刻（例: 12:00）
+    private LocalTime lunchBreakStartTime; 
 
     @Column(name = "lunch_break_end_time")
-    private LocalTime lunchBreakEndTime; // 昼休憩終了時刻（例: 13:00）
+    private LocalTime lunchBreakEndTime; 
 
-    // 中抜け設定
     @Column(name = "leave_default_type", length = 20)
-    private String leaveDefaultType = "DEDUCTION"; // DEDUCTION（控除）, PAID_LEAVE（有給）
-
-    // Getters and Setters
+    private String leaveDefaultType = "DEDUCTION"; 
 
     public Long getId() {
         return id;

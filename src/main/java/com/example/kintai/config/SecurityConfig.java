@@ -75,8 +75,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // 本番環境ではBCryptPasswordEncoderを使用すべき
-        // return new BCryptPasswordEncoder();
+        
         return NoOpPasswordEncoder.getInstance();
     }
 }

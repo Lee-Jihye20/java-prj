@@ -102,7 +102,7 @@
                     </select>
                     <span style="font-weight: 600;" th:text="${#temporals.format(selectedYearMonth.atDay(1), 'yyyy年MM月')}"></span>
                 </div>
-                <!-- 検索フォーム -->
+                
                 <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
                     <form method="get" th:action="@{/admin/evaluations/monthly}" style="display: flex; gap: 10px; align-items: center;">
                         <input type="hidden" name="yearMonth" th:value="${selectedYearMonthStr}">

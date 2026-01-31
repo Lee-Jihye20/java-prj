@@ -12,4 +12,3 @@ public interface BreakRecordRepository extends JpaRepository<BreakRecord, Long> 
     
     List<BreakRecord> findByAttendance_IdAndBreakEndIsNull(Long attendanceId);
 }
-

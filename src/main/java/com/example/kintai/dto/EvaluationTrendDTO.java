@@ -11,8 +11,8 @@ public class EvaluationTrendDTO {
     private Integer fixRequestCount;
     private Integer consecutiveWorkDays;
     private BigDecimal overtimeAccuracy;
-    private String selfRating; // 自己評価
-    private String adminRating; // 管理者評価
+    private String selfRating; 
+    private String adminRating; 
 
     public EvaluationTrendDTO() {
     }
@@ -27,7 +27,6 @@ public class EvaluationTrendDTO {
         this.overtimeAccuracy = BigDecimal.ZERO;
     }
 
-    // Getters and Setters
     public LocalDate getYearMonth() {
         return yearMonth;
     }

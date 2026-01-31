@@ -47,21 +47,15 @@ public class ExportService {
     @Autowired
     private com.example.kintai.repository.AdminActionLogRepository adminActionLogRepository;
 
-    /**
-     * 日別勤怠データをXLSX形式で出力（1人×1日）
-     * 列名: 日付, 出勤, 退勤, 休憩時間, 実働時間, 残業時間, 備考
-     */
     public byte[] exportDailyAttendance(Long userId, LocalDate date) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("日別勤怠");
 
-        // ヘッダー行のスタイル
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle dateTimeStyle = createDateTimeStyle(workbook);
         CellStyle dateStyle = createDateStyle(workbook);
         CellStyle timeStyle = createTimeStyle(workbook);
 
-        // ヘッダー行を作成
         Row headerRow = sheet.createRow(0);
         String[] headers = {"日付", "出勤", "退勤", "休憩時間", "実働時間", "残業時間", "備考"};
         for (int i = 0; i < headers.length; i++) {
@@ -70,7 +64,6 @@ public class ExportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // データ行を作成
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
         List<Attendance> attendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
@@ -80,7 +73,6 @@ public class ExportService {
         for (Attendance attendance : attendances) {
             Row row = sheet.createRow(rowNum++);
 
-            // 日付（Excel日付型として設定）
             Cell dateCell = row.createCell(0);
             if (attendance.getCheckIn() != null) {
                 LocalDate localDate = attendance.getCheckIn().toLocalDate();
@@ -89,7 +81,6 @@ public class ExportService {
                 dateCell.setCellStyle(dateStyle);
             }
 
-            // 出勤（Excel日時型として設定）
             Cell checkInCell = row.createCell(1);
             if (attendance.getCheckIn() != null) {
                 Date checkInDate = Date.from(attendance.getCheckIn().atZone(ZoneId.systemDefault()).toInstant());
@@ -97,7 +88,6 @@ public class ExportService {
                 checkInCell.setCellStyle(dateTimeStyle);
             }
 
-            // 退勤（Excel日時型として設定）
             Cell checkOutCell = row.createCell(2);
             if (attendance.getCheckOut() != null) {
                 Date checkOutDate = Date.from(attendance.getCheckOut().atZone(ZoneId.systemDefault()).toInstant());
@@ -105,13 +95,11 @@ public class ExportService {
                 checkOutCell.setCellStyle(dateTimeStyle);
             }
 
-            // 休憩時間（分）（BreakRecordService に集約）
             long totalBreakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
             Cell breakCell = row.createCell(3);
-            breakCell.setCellValue(totalBreakMinutes / 60.0); // 時間単位
+            breakCell.setCellValue(totalBreakMinutes / 60.0); 
             breakCell.setCellStyle(timeStyle);
 
-            // 実働時間（時間）
             double workHours = 0.0;
             if (attendance.getCheckIn() != null && attendance.getCheckOut() != null) {
                 long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
@@ -122,7 +110,6 @@ public class ExportService {
             workCell.setCellValue(workHours);
             workCell.setCellStyle(timeStyle);
 
-            // 残業時間（時間、8時間超過分）
             double overtimeHours = 0.0;
             if (workHours > 8.0) {
                 overtimeHours = workHours - 8.0;
@@ -131,13 +118,12 @@ public class ExportService {
             overtimeCell.setCellValue(overtimeHours);
             overtimeCell.setCellStyle(timeStyle);
 
-            // 備考
             Cell noteCell = row.createCell(6);
             StringBuilder notes = new StringBuilder();
             if (attendance.getCheckOut() == null) {
                 notes.append("退勤未打刻; ");
             }
-            // 修正依頼の情報を追加
+            
             List<FixRequest> fixRequests = fixRequestRepository.findByUser_IdOrderByCreatedAtDesc(attendance.getUserId());
             fixRequests.stream()
                     .filter(fr -> fr.getAttendanceId().equals(attendance.getId()))
@@ -154,13 +140,11 @@ public class ExportService {
             noteCell.setCellValue(notes.toString().trim());
         }
 
-        // 列幅を自動調整
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
-            sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000); // 少し余裕を持たせる
+            sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000); 
         }
 
-        // ワークブックをバイト配列に変換
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();
@@ -168,20 +152,14 @@ public class ExportService {
         return outputStream.toByteArray();
     }
 
-    /**
-     * 月次集計データをXLSX形式で出力（1人×1か月）
-     * 列名: ユーザー名, 年月, 勤務日数, 総勤務時間, 総休憩時間, 総残業時間
-     */
     public byte[] exportMonthlySummary(Long userId, int year, int month) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("月次集計");
 
-        // スタイル
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle numberStyle = createNumberStyle(workbook);
         CellStyle timeStyle = createTimeStyle(workbook);
 
-        // ヘッダー行
         Row headerRow = sheet.createRow(0);
         String[] headers = {"ユーザー名", "年月", "勤務日数", "総勤務時間", "総休憩時間", "総残業時間"};
         for (int i = 0; i < headers.length; i++) {
@@ -190,7 +168,6 @@ public class ExportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // データ行
         User user = userRepository.findById(userId).orElseThrow();
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDateTime startDate = yearMonth.atDay(1).atStartOfDay();
@@ -201,15 +178,12 @@ public class ExportService {
 
         Row dataRow = sheet.createRow(1);
 
-        // ユーザー名
         Cell nameCell = dataRow.createCell(0);
         nameCell.setCellValue(user.getUsername());
 
-        // 年月
         Cell yearMonthCell = dataRow.createCell(1);
         yearMonthCell.setCellValue(yearMonth.format(DateTimeFormatter.ofPattern("yyyy年MM月")));
 
-        // 集計計算
         int workDays = 0;
         double totalWorkHours = 0.0;
         double totalBreakHours = 0.0;
@@ -230,40 +204,33 @@ public class ExportService {
                 totalWorkHours += workMinutes / 60.0;
                 totalBreakHours += totalBreakMinutes / 60.0;
 
-                // 残業時間（8時間超過分）
                 if (workMinutes > 480) {
                     totalOvertimeHours += (workMinutes - 480) / 60.0;
                 }
             }
         }
 
-        // 勤務日数
         Cell workDaysCell = dataRow.createCell(2);
         workDaysCell.setCellValue(workDays);
         workDaysCell.setCellStyle(numberStyle);
 
-        // 総勤務時間
         Cell totalWorkCell = dataRow.createCell(3);
         totalWorkCell.setCellValue(totalWorkHours);
         totalWorkCell.setCellStyle(timeStyle);
 
-        // 総休憩時間
         Cell totalBreakCell = dataRow.createCell(4);
         totalBreakCell.setCellValue(totalBreakHours);
         totalBreakCell.setCellStyle(timeStyle);
 
-        // 総残業時間
         Cell totalOvertimeCell = dataRow.createCell(5);
         totalOvertimeCell.setCellValue(totalOvertimeHours);
         totalOvertimeCell.setCellStyle(timeStyle);
 
-        // 列幅を自動調整
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
         }
 
-        // ワークブックをバイト配列に変換
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();
@@ -271,18 +238,13 @@ public class ExportService {
         return outputStream.toByteArray();
     }
 
-    /**
-     * 打刻ログデータを取得（表示用）
-     */
     public List<AttendanceLogDTO> getAttendanceLogs(Long companyId, LocalDate startDate, LocalDate endDate) {
         List<AttendanceLogDTO> logs = new java.util.ArrayList<>();
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
         
-        // 全ユーザーを取得
         List<User> users = userRepository.findAllByCompanyId(companyId);
         
-        // 出勤・退勤ログ
         List<Attendance> attendances = attendanceRepository.findAllByUser_CompanyId(companyId).stream()
                 .filter(a -> {
                     boolean checkInInRange = a.getCheckIn() != null && 
@@ -309,7 +271,6 @@ public class ExportService {
                     .orElse(null);
             if (user == null) continue;
 
-            // 出勤ログ
             if (attendance.getCheckIn() != null) {
                 boolean checkInInRange = !attendance.getCheckIn().isBefore(startDateTime) && 
                         !attendance.getCheckIn().isAfter(endDateTime);
@@ -324,7 +285,6 @@ public class ExportService {
                 }
             }
 
-            // 退勤ログ
             if (attendance.getCheckOut() != null) {
                 boolean checkOutInRange = !attendance.getCheckOut().isBefore(startDateTime) && 
                         !attendance.getCheckOut().isAfter(endDateTime);
@@ -339,7 +299,6 @@ public class ExportService {
                 }
             }
 
-            // 休憩ログ（BreakRecordService に集約）
             List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendance.getId());
             for (BreakRecord breakRecord : breakRecords) {
                 if (breakRecord.getBreakStart() != null) {
@@ -370,7 +329,6 @@ public class ExportService {
                 }
             }
 
-            // 中抜けログ（LeaveRecordService に集約）
             List<LeaveRecord> leaveRecords = leaveRecordService.getLeaveRecordsByAttendanceId(attendance.getId());
             for (LeaveRecord leaveRecord : leaveRecords) {
                 if (leaveRecord.getLeaveStart() != null) {
@@ -408,7 +366,6 @@ public class ExportService {
             }
         }
 
-        // 修正依頼ログ
         List<FixRequest> fixRequests = fixRequestRepository.findAllByUser_CompanyId(companyId).stream()
                 .filter(fr -> fr.getCreatedAt() != null &&
                         !fr.getCreatedAt().isBefore(startDateTime) &&
@@ -441,14 +398,13 @@ public class ExportService {
                 "依頼ID: " + fixRequest.getId() + ", 理由: " + fixRequest.getReason() + ", 種別: " + convertRequestTypeToJapanese(fixRequest.getRequestType())
             ));
 
-            // 承認/却下ログ
             if ("APPROVED".equals(fixRequest.getStatus()) || "REJECTED".equals(fixRequest.getStatus())) {
-                // 承認者のユーザー名を取得
+                
                 String approverName = "管理者";
                 if (fixRequest.getApprovedBy() != null) {
                     approverName = fixRequest.getApprovedBy().getUsername();
                 } else {
-                    // 承認者が記録されていない場合は、ユーザーリストから探す
+                    
                     User approver = users.stream()
                             .filter(u -> u.getId().equals(fixRequest.getApprovedByUserId()))
                             .findFirst()
@@ -468,33 +424,22 @@ public class ExportService {
             }
         }
 
-        // タイムスタンプでソート
         logs.sort((l1, l2) -> l1.getTimestamp().compareTo(l2.getTimestamp()));
         
         return logs;
     }
 
-    /**
-     * 打刻ログをXLSX形式で出力（証跡用、改ざん不可）
-     * 列名: 日時, ユーザー名, 操作種別, 値, 備考
-     */
     public byte[] exportAttendanceLog(Long companyId, LocalDate startDate, LocalDate endDate) throws IOException {
         return exportAttendanceLog(companyId, startDate, endDate, null, null);
     }
 
-    /**
-     * 打刻ログをXLSX形式で出力（フィルター対応版）
-     * 列名: 日時, ユーザー名, 操作種別, 値, 備考
-     */
     public byte[] exportAttendanceLog(Long companyId, LocalDate startDate, LocalDate endDate, String username, String operationType) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("打刻ログ");
 
-        // スタイル
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle dateTimeStyle = createDateTimeStyle(workbook);
 
-        // ヘッダー行
         Row headerRow = sheet.createRow(0);
         String[] headers = {"日時", "ユーザー名", "操作種別", "値", "備考"};
         for (int i = 0; i < headers.length; i++) {
@@ -503,29 +448,27 @@ public class ExportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // 全ユーザーを取得
         List<User> users = userRepository.findAllByCompanyId(companyId);
         int rowNum = 1;
 
-        // 出勤・退勤ログ
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
-        // 出勤または退勤のいずれかが期間内にある勤怠記録を取得
+        
         List<Attendance> attendances = attendanceRepository.findAllByUser_CompanyId(companyId).stream()
                 .filter(a -> {
-                    // 出勤が期間内にあるか
+                    
                     boolean checkInInRange = a.getCheckIn() != null && 
                             !a.getCheckIn().isBefore(startDateTime) && 
                             !a.getCheckIn().isAfter(endDateTime);
-                    // 退勤が期間内にあるか
+                    
                     boolean checkOutInRange = a.getCheckOut() != null && 
                             !a.getCheckOut().isBefore(startDateTime) && 
                             !a.getCheckOut().isAfter(endDateTime);
-                    // 出勤または退勤のいずれかが期間内にあれば対象
+                    
                     return checkInInRange || checkOutInRange;
                 })
                 .sorted((a1, a2) -> {
-                    // ソート用の時刻を決定（出勤時刻を優先、なければ退勤時刻）
+                    
                     LocalDateTime time1 = a1.getCheckIn() != null ? a1.getCheckIn() : 
                             (a1.getCheckOut() != null ? a1.getCheckOut() : LocalDateTime.MIN);
                     LocalDateTime time2 = a2.getCheckIn() != null ? a2.getCheckIn() : 
@@ -541,17 +484,15 @@ public class ExportService {
                     .orElse(null);
             if (user == null) continue;
 
-            // ユーザーフィルター
             if (username != null && !username.isEmpty() && !user.getUsername().equals(username)) {
                 continue;
             }
 
-            // 出勤ログ（出勤時刻が期間内にある場合のみ表示）
             if (attendance.getCheckIn() != null) {
                 boolean checkInInRange = !attendance.getCheckIn().isBefore(startDateTime) && 
                         !attendance.getCheckIn().isAfter(endDateTime);
                 if (checkInInRange) {
-                    // 操作種別フィルター
+                    
                     if (operationType == null || operationType.isEmpty() || "出勤".equals(operationType)) {
                         Row row = sheet.createRow(rowNum++);
                         Cell dateCell = row.createCell(0);
@@ -573,12 +514,11 @@ public class ExportService {
                 }
             }
 
-            // 退勤ログ（退勤時刻が期間内にある場合のみ表示）
             if (attendance.getCheckOut() != null) {
                 boolean checkOutInRange = !attendance.getCheckOut().isBefore(startDateTime) && 
                         !attendance.getCheckOut().isAfter(endDateTime);
                 if (checkOutInRange) {
-                    // 操作種別フィルター
+                    
                     if (operationType == null || operationType.isEmpty() || "退勤".equals(operationType)) {
                         Row row = sheet.createRow(rowNum++);
                         Cell dateCell = row.createCell(0);
@@ -600,15 +540,14 @@ public class ExportService {
                 }
             }
 
-            // 休憩ログ（BreakRecordService に集約）
             List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendance.getId());
             for (BreakRecord breakRecord : breakRecords) {
-                // 休憩開始ログ
+                
                 if (breakRecord.getBreakStart() != null) {
                     boolean breakStartInRange = !breakRecord.getBreakStart().isBefore(startDateTime) && 
                             !breakRecord.getBreakStart().isAfter(endDateTime);
                     if (breakStartInRange) {
-                        // 操作種別フィルター
+                        
                         if (operationType == null || operationType.isEmpty() || "休憩開始".equals(operationType)) {
                             Row row = sheet.createRow(rowNum++);
                             Cell dateCell = row.createCell(0);
@@ -630,12 +569,11 @@ public class ExportService {
                     }
                 }
 
-                // 休憩終了ログ
                 if (breakRecord.getBreakEnd() != null) {
                     boolean breakEndInRange = !breakRecord.getBreakEnd().isBefore(startDateTime) && 
                             !breakRecord.getBreakEnd().isAfter(endDateTime);
                     if (breakEndInRange) {
-                        // 操作種別フィルター
+                        
                         if (operationType == null || operationType.isEmpty() || "休憩終了".equals(operationType)) {
                             Row row = sheet.createRow(rowNum++);
                             Cell dateCell = row.createCell(0);
@@ -658,15 +596,14 @@ public class ExportService {
                 }
             }
 
-            // 中抜けログ（LeaveRecordService に集約）
             List<LeaveRecord> leaveRecords = leaveRecordService.getLeaveRecordsByAttendanceId(attendance.getId());
             for (LeaveRecord leaveRecord : leaveRecords) {
-                // 中抜け開始ログ
+                
                 if (leaveRecord.getLeaveStart() != null) {
                     boolean leaveStartInRange = !leaveRecord.getLeaveStart().isBefore(startDateTime) && 
                             !leaveRecord.getLeaveStart().isAfter(endDateTime);
                     if (leaveStartInRange) {
-                        // 操作種別フィルター
+                        
                         if (operationType == null || operationType.isEmpty() || "中抜け開始".equals(operationType)) {
                             Row row = sheet.createRow(rowNum++);
                             Cell dateCell = row.createCell(0);
@@ -691,12 +628,11 @@ public class ExportService {
                     }
                 }
 
-                // 中抜け終了ログ
                 if (leaveRecord.getLeaveEnd() != null) {
                     boolean leaveEndInRange = !leaveRecord.getLeaveEnd().isBefore(startDateTime) && 
                             !leaveRecord.getLeaveEnd().isAfter(endDateTime);
                     if (leaveEndInRange) {
-                        // 操作種別フィルター
+                        
                         if (operationType == null || operationType.isEmpty() || "中抜け終了".equals(operationType)) {
                             Row row = sheet.createRow(rowNum++);
                             Cell dateCell = row.createCell(0);
@@ -723,7 +659,6 @@ public class ExportService {
             }
         }
 
-        // 修正依頼ログ
         List<FixRequest> fixRequests = fixRequestRepository.findAllByUser_CompanyId(companyId).stream()
                 .filter(fr -> fr.getCreatedAt() != null &&
                         !fr.getCreatedAt().isBefore(startDateTime) &&
@@ -738,12 +673,10 @@ public class ExportService {
                     .orElse(null);
             if (user == null) continue;
 
-            // ユーザーフィルター
             if (username != null && !username.isEmpty() && !user.getUsername().equals(username)) {
                 continue;
             }
 
-            // 修正依頼作成ログ
             if (operationType == null || operationType.isEmpty() || "修正依頼".equals(operationType)) {
                 Row row = sheet.createRow(rowNum++);
                 Cell dateCell = row.createCell(0);
@@ -775,16 +708,15 @@ public class ExportService {
                 noteCell.setCellValue("依頼ID: " + fixRequest.getId() + ", 理由: " + fixRequest.getReason() + ", 種別: " + convertRequestTypeToJapanese(fixRequest.getRequestType()));
             }
 
-            // 承認/却下ログ（承認・却下された場合）
             if ("APPROVED".equals(fixRequest.getStatus()) || "REJECTED".equals(fixRequest.getStatus())) {
                 String actionType = "APPROVED".equals(fixRequest.getStatus()) ? "修正承認" : "修正却下";
                 if (operationType == null || operationType.isEmpty() || actionType.equals(operationType)) {
-                    // 承認者のユーザー名を取得
+                    
                     String approverName = "管理者";
                     if (fixRequest.getApprovedBy() != null) {
                         approverName = fixRequest.getApprovedBy().getUsername();
                     } else {
-                        // 承認者が記録されていない場合は、ユーザーリストから探す
+                        
                         User approver = users.stream()
                                 .filter(u -> u.getId().equals(fixRequest.getApprovedByUserId()))
                                 .findFirst()
@@ -794,15 +726,14 @@ public class ExportService {
                         }
                     }
                     
-                    // ユーザーフィルター
                     if (username != null && !username.isEmpty() && !approverName.equals(username)) {
-                        // 承認者がフィルター条件に一致しない場合はスキップ
+                        
                         continue;
                     }
                     
                     Row actionRow = sheet.createRow(rowNum++);
                     Cell actionDateCell = actionRow.createCell(0);
-                    // 承認/却下時刻はcreatedAtを使用（実際の承認時刻を記録する場合は別途フィールドが必要）
+                    
                     actionDateCell.setCellValue(fixRequest.getCreatedAt());
                     actionDateCell.setCellStyle(dateTimeStyle);
 
@@ -821,13 +752,11 @@ public class ExportService {
             }
         }
 
-        // 列幅を自動調整
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
         }
 
-        // ワークブックをバイト配列に変換
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();
@@ -835,9 +764,6 @@ public class ExportService {
         return outputStream.toByteArray();
     }
 
-    /**
-     * ヘッダー行のスタイルを作成
-     */
     private CellStyle createHeaderStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         Font font = workbook.createFont();
@@ -853,31 +779,22 @@ public class ExportService {
         return style;
     }
 
-    /**
-     * 日時型のセルスタイルを作成（Excel日時型）
-     */
     private CellStyle createDateTimeStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         DataFormat format = workbook.createDataFormat();
-        // Excel日時型のフォーマット（yyyy/mm/dd hh:mm:ss）
+        
         style.setDataFormat(format.getFormat("yyyy/mm/dd hh:mm:ss"));
         return style;
     }
     
-    /**
-     * 日付型のセルスタイルを作成（Excel日付型）
-     */
     private CellStyle createDateStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         DataFormat format = workbook.createDataFormat();
-        // Excel日付型のフォーマット（yyyy/mm/dd）
+        
         style.setDataFormat(format.getFormat("yyyy/mm/dd"));
         return style;
     }
 
-    /**
-     * 時間型のセルスタイルを作成
-     */
     private CellStyle createTimeStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         DataFormat format = workbook.createDataFormat();
@@ -885,9 +802,6 @@ public class ExportService {
         return style;
     }
 
-    /**
-     * 数値型のセルスタイルを作成
-     */
     private CellStyle createNumberStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         DataFormat format = workbook.createDataFormat();
@@ -895,9 +809,6 @@ public class ExportService {
         return style;
     }
 
-    /**
-     * 修正依頼の種類を日本語に変換
-     */
     private String convertRequestTypeToJapanese(String requestType) {
         if (requestType == null) {
             return "不明";
@@ -928,19 +839,13 @@ public class ExportService {
         }
     }
 
-    /**
-     * 管理者ログをXLSX形式で出力
-     * 列名: 日時, アクション種別, 対象種別, 対象ID, 詳細
-     */
     public byte[] exportAdminLog(Long adminId, LocalDate startDate, LocalDate endDate) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("管理者ログ");
 
-        // スタイル
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle dateTimeStyle = createDateTimeStyle(workbook);
 
-        // ヘッダー行
         Row headerRow = sheet.createRow(0);
         String[] headers = {"日時", "アクション種別", "対象種別", "対象ID", "詳細"};
         for (int i = 0; i < headers.length; i++) {
@@ -949,7 +854,6 @@ public class ExportService {
             cell.setCellStyle(headerStyle);
         }
 
-        // データ行
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
         List<com.example.kintai.entity.AdminActionLog> logs = adminActionLogRepository
@@ -959,38 +863,31 @@ public class ExportService {
         for (com.example.kintai.entity.AdminActionLog log : logs) {
             Row row = sheet.createRow(rowNum++);
 
-            // 日時
             Cell dateTimeCell = row.createCell(0);
             dateTimeCell.setCellValue(Date.from(log.getCreatedAt()
                     .atZone(ZoneId.systemDefault()).toInstant()));
             dateTimeCell.setCellStyle(dateTimeStyle);
 
-            // アクション種別
             Cell actionTypeCell = row.createCell(1);
             actionTypeCell.setCellValue(log.getActionTypeInJapanese());
 
-            // 対象種別
             Cell targetTypeCell = row.createCell(2);
             targetTypeCell.setCellValue(log.getTargetType() != null ? log.getTargetType() : "");
 
-            // 対象ID
             Cell targetIdCell = row.createCell(3);
             if (log.getTargetId() != null) {
                 targetIdCell.setCellValue(log.getTargetId());
             }
 
-            // 詳細
             Cell detailCell = row.createCell(4);
             detailCell.setCellValue(log.getDetail() != null ? log.getDetail() : "");
         }
 
-        // 列幅を自動調整
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000);
         }
 
-        // ワークブックをバイト配列に変換
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();

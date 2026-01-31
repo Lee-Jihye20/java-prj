@@ -29,13 +29,11 @@ public class Attendance {
     private LocalDateTime breakEnd;
 
     @Column(nullable = false, length = 20)
-    private String status = "APPROVED"; // PENDING, APPROVED, REJECTED (通常の打刻は自動承認)
+    private String status = "APPROVED"; 
 
-    // Constructors
     public Attendance() {
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -103,9 +101,6 @@ public class Attendance {
         this.user = user;
     }
 
-    /**
-     * ステータスを日本語で取得
-     */
     public String getStatusInJapanese() {
         if (status == null) {
             return "不明";

@@ -9,14 +9,13 @@ public class MonthlyReportDTO {
     private String username;
     private int year;
     private int month;
-    private int workDays; // 出勤日数
-    private long totalWorkMinutes; // 総勤務時間（分）
-    private long totalOvertimeMinutes; // 総残業時間（分）
-    private long totalBreakMinutes; // 総休憩時間（分）
-    private double averageWorkHours; // 平均勤務時間
-    private List<DailyReportDTO> dailyReports; // 日別詳細
+    private int workDays; 
+    private long totalWorkMinutes; 
+    private long totalOvertimeMinutes; 
+    private long totalBreakMinutes; 
+    private double averageWorkHours; 
+    private List<DailyReportDTO> dailyReports; 
 
-    // Constructors
     public MonthlyReportDTO() {
         this.dailyReports = new ArrayList<>();
     }
@@ -28,22 +27,18 @@ public class MonthlyReportDTO {
         this.dailyReports = new ArrayList<>();
     }
 
-    // 勤務時間を時間単位で取得
     public double getTotalWorkHours() {
         return totalWorkMinutes / 60.0;
     }
 
-    // 残業時間を時間単位で取得
     public double getTotalOvertimeHours() {
         return totalOvertimeMinutes / 60.0;
     }
 
-    // 休憩時間を時間単位で取得
     public double getTotalBreakHours() {
         return totalBreakMinutes / 60.0;
     }
 
-    // Getters and Setters
     public String getUsername() {
         return username;
     }
@@ -116,7 +111,6 @@ public class MonthlyReportDTO {
         this.dailyReports = dailyReports;
     }
 
-    // 日別レポートDTO
     public static class DailyReportDTO {
         private LocalDate date;
         private long workMinutes;
@@ -147,7 +141,6 @@ public class MonthlyReportDTO {
             return breakMinutes / 60.0;
         }
 
-        // Getters and Setters
         public LocalDate getDate() {
             return date;
         }
@@ -188,9 +181,6 @@ public class MonthlyReportDTO {
             this.status = status;
         }
 
-        /**
-         * ステータスを日本語で取得
-         */
         public String getStatusInJapanese() {
             if (status == null) {
                 return "不明";

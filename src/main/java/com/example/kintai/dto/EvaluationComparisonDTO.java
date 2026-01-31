@@ -8,7 +8,6 @@ public class EvaluationComparisonDTO {
     private String employeeName;
     private LocalDate yearMonth;
     
-    // 事実ベース評価
     private BigDecimal factBasedScore;
     private Integer lateCount;
     private BigDecimal applicationComplianceRate;
@@ -16,17 +15,14 @@ public class EvaluationComparisonDTO {
     private Integer consecutiveWorkDays;
     private BigDecimal overtimeAccuracy;
     
-    // 自己評価
     private String selfRating;
     private String selfComment;
     
-    // 管理者評価（週次評価から集計）
     private String adminRating;
     private String adminComment;
     
-    // 差分
-    private String ratingDifference; // 自己評価と管理者評価の差分
-    private boolean hasDifference; // 差分があるかどうか
+    private String ratingDifference; 
+    private boolean hasDifference; 
 
     public EvaluationComparisonDTO() {
     }
@@ -39,9 +35,6 @@ public class EvaluationComparisonDTO {
         this.hasDifference = false;
     }
 
-    /**
-     * 評価の差分を計算
-     */
     public void calculateDifference() {
         if (selfRating == null || adminRating == null) {
             hasDifference = false;
@@ -58,7 +51,6 @@ public class EvaluationComparisonDTO {
         }
     }
 
-    // Getters and Setters
     public Long getEmployeeId() {
         return employeeId;
     }

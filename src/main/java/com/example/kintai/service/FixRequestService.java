@@ -45,31 +45,22 @@ public class FixRequestService {
     @Autowired
     private SlackNotificationService slackNotificationService;
 
-    /**
-     * 修正依頼を作成
-     */
     @Transactional
     public FixRequest createFixRequest(Long attendanceId, Long userId, String requestType,
                                         LocalDateTime newValue, String reason) {
         return createFixRequest(attendanceId, userId, requestType, newValue, null, null, reason);
     }
 
-    /**
-     * 修正依頼を作成（中抜け対応版）
-     */
     @Transactional
     public FixRequest createFixRequest(Long attendanceId, Long userId, String requestType,
                                         LocalDateTime newValue, Long leaveRecordId, String newLeaveType, String reason) {
         return createFixRequest(attendanceId, userId, requestType, newValue, null, leaveRecordId, newLeaveType, reason);
     }
 
-    /**
-     * 修正依頼を作成（出勤・退勤／開始・終了を一度に申請する場合の newValue2 対応）
-     */
     @Transactional
     public FixRequest createFixRequest(Long attendanceId, Long userId, String requestType,
                                         LocalDateTime newValue, LocalDateTime newValue2, Long leaveRecordId, String newLeaveType, String reason) {
-        // 勤怠レコードの存在確認
+        
         Optional<Attendance> attendanceOptional = attendanceRepository.findById(attendanceId);
         if (attendanceOptional.isEmpty()) {
             throw new IllegalArgumentException("指定された勤怠レコードが存在しません");
@@ -82,7 +73,6 @@ public class FixRequestService {
         }
         User user = userOptional.get();
 
-        // 中抜け関連の修正依頼の場合、中抜け記録の存在確認
         LeaveRecord leaveRecord = null;
         if (leaveRecordId != null) {
             leaveRecord = leaveRecordService.getLeaveRecordById(leaveRecordId)
@@ -106,9 +96,8 @@ public class FixRequestService {
 
         FixRequest savedFixRequest = fixRequestRepository.save(fixRequest);
 
-        // Slack通知 (管理者チャンネル) - embed形式
         Map<String, Object> attachment = new HashMap<>();
-        attachment.put("color", "#FFA500"); // オレンジ色
+        attachment.put("color", "#FFA500"); 
         
         List<Map<String, Object>> fields = new ArrayList<>();
         
@@ -170,30 +159,18 @@ public class FixRequestService {
         return savedFixRequest;
     }
 
-    /**
-     * ユーザーの修正依頼一覧を取得
-     */
     public List<FixRequest> getFixRequestsByUserId(Long userId) {
         return fixRequestRepository.findByUser_IdOrderByCreatedAtDesc(userId);
     }
 
-    /**
-     * すべての修正依頼を取得(企業ごと)
-     */
     public List<FixRequest> findAllByCompanyId(Long companyId) {
         return fixRequestRepository.findAllByUser_CompanyId(companyId);
     }
 
-    /**
-     * 保留中の修正依頼を取得 (企業ごと)
-     */
     public List<FixRequest> findPendingRequestsByCompanyId(Long companyId) {
         return fixRequestRepository.findByStatusAndUser_CompanyId("PENDING", companyId);
     }
 
-    /**
-     * 修正依頼を承認
-     */
     @Transactional
     public FixRequest approveFixRequest(Long requestId, Long approvedByUserId) {
         Optional<FixRequest> optionalRequest = fixRequestRepository.findById(requestId);
@@ -206,7 +183,6 @@ public class FixRequestService {
             throw new IllegalStateException("この修正依頼は既に処理されています");
         }
 
-        // 勤怠レコードまたは中抜け記録を更新
         Optional<Attendance> optionalAttendance = attendanceRepository.findById(fixRequest.getAttendanceId());
         if (optionalAttendance.isPresent()) {
             Attendance attendance = optionalAttendance.get();
@@ -256,7 +232,7 @@ public class FixRequestService {
                     }
                     break;
                 case "OVERTIME_APPLICATION":
-                    // 理由付き残業申請：勤怠は変更せず、承認のみ（残業はそのまま確定）
+                    
                     break;
                 case "CHECK_IN_AND_OUT":
                     if (fixRequest.getNewValue() != null && fixRequest.getNewValue2() != null) {
@@ -281,10 +257,8 @@ public class FixRequestService {
             }
         }
 
-        // 修正依頼のステータスを更新
         fixRequest.setStatus("APPROVED");
         
-        // 承認者を記録
         if (approvedByUserId != null) {
             Optional<User> approvedByUser = userRepository.findById(approvedByUserId);
             if (approvedByUser.isPresent()) {
@@ -294,15 +268,13 @@ public class FixRequestService {
         
         FixRequest savedFixRequest = fixRequestRepository.saveAndFlush(fixRequest);
 
-        // 異常検知の修正依頼として承認した場合は、該当異常を解決済みにマーク（未解決一覧・従業員ポップアップから除外）
         markAnomalyResolvedByFixRequest(savedFixRequest.getAttendanceId(), savedFixRequest.getRequestType(), approvedByUserId);
 
-        // Slack通知 (ユーザーDM) - embed形式
         User user = savedFixRequest.getUser();
         String mention = user.getSlackUserId() != null ? "<@" + user.getSlackUserId() + "> " : "";
         
         Map<String, Object> attachment = new HashMap<>();
-        attachment.put("color", "#36a64f"); // 緑色（承認）
+        attachment.put("color", "#36a64f"); 
         attachment.put("pretext", mention + "修正依頼が承認されました");
         
         List<Map<String, Object>> fields = new ArrayList<>();
@@ -358,9 +330,6 @@ public class FixRequestService {
         return savedFixRequest;
     }
 
-    /**
-     * 修正依頼を却下
-     */
     @Transactional
     public FixRequest rejectFixRequest(Long requestId) {
         Optional<FixRequest> optionalRequest = fixRequestRepository.findById(requestId);
@@ -376,12 +345,11 @@ public class FixRequestService {
         fixRequest.setStatus("REJECTED");
         FixRequest savedFixRequest = fixRequestRepository.saveAndFlush(fixRequest);
 
-        // Slack通知 (ユーザーDM) - embed形式
         User user = savedFixRequest.getUser();
         String mention = user.getSlackUserId() != null ? "<@" + user.getSlackUserId() + "> " : "";
         
         Map<String, Object> attachment = new HashMap<>();
-        attachment.put("color", "#D00000"); // 赤色（却下）
+        attachment.put("color", "#D00000"); 
         attachment.put("pretext", mention + "修正依頼が却下されました");
         
         List<Map<String, Object>> fields = new ArrayList<>();
@@ -414,27 +382,19 @@ public class FixRequestService {
         return savedFixRequest;
     }
 
-    /**
-     * IDで修正依頼を取得
-     */
     public Optional<FixRequest> getFixRequestById(Long id) {
         return fixRequestRepository.findById(id);
     }
 
-    /**
-     * 異常検知の修正依頼が承認された場合、該当異常を解決済みにマークする。
-     * 未解決の異常検知一覧および従業員ダッシュボードのポップアップから除外される。
-     * 残業超過関連の申請 → OVERTIME を解決、退勤時刻の申請（CHECK_OUT）→ MISSING_CHECKOUT を解決。
-     */
     private void markAnomalyResolvedByFixRequest(Long attendanceId, String requestType, Long approvedByUserId) {
-        // 残業超過関連の申請承認時は OvertimeExcessService で解決済みに
+        
         if ("CHECK_IN".equals(requestType) || "CHECK_OUT".equals(requestType)
                 || "BREAK_START".equals(requestType) || "BREAK_END".equals(requestType)
                 || "CHECK_IN_AND_OUT".equals(requestType) || "BREAK_START_AND_END".equals(requestType)
                 || "OVERTIME_APPLICATION".equals(requestType)) {
             overtimeExcessService.markResolved(attendanceId, approvedByUserId);
         }
-        // 退勤時刻の申請承認時は退勤未打刻（MISSING_CHECKOUT）を解決済みに
+        
         if ("CHECK_OUT".equals(requestType)) {
             markAnomalyResolved(attendanceId, "MISSING_CHECKOUT", approvedByUserId);
         }
@@ -468,9 +428,6 @@ public class FixRequestService {
         }
     }
 
-    /**
-     * 修正タイプを日本語ラベルに変換
-     */
     private String getRequestTypeLabel(String requestType) {
         switch (requestType) {
             case "CHECK_IN":

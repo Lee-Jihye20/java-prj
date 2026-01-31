@@ -29,26 +29,17 @@ public class RoleService {
     @Autowired
     private UserRepository userRepository;
 
-    /**
-     * 企業の全ロールを取得（権限情報を含む）
-     */
     public List<Role> getRolesByCompanyId(Long companyId) {
         return roleRepository.findByCompany_IdWithPermissions(companyId);
     }
 
-    /**
-     * ロールを取得
-     */
     public Optional<Role> getRoleById(Long roleId) {
         return roleRepository.findById(roleId);
     }
 
-    /**
-     * ロールを作成
-     */
     @Transactional
     public Role createRole(String name, String description, Long companyId, Set<Long> permissionIds) {
-        // 同じ企業内でロール名の重複チェック
+        
         Optional<Role> existingRole = roleRepository.findByNameAndCompany_Id(name, companyId);
         if (existingRole.isPresent()) {
             throw new IllegalArgumentException("このロール名は既に使用されています");
@@ -62,7 +53,6 @@ public class RoleService {
         role.setCompany(company);
         role.setIsSystemRole(false);
 
-        // 権限を設定
         if (permissionIds != null && !permissionIds.isEmpty()) {
             Set<Permission> permissions = permissionIds.stream()
                     .map(permissionRepository::findById)
@@ -75,9 +65,6 @@ public class RoleService {
         return roleRepository.save(role);
     }
 
-    /**
-     * ロールを更新
-     */
     @Transactional
     public Role updateRole(Long roleId, String name, String description, Set<Long> permissionIds) {
         Optional<Role> optionalRole = roleRepository.findById(roleId);
@@ -87,12 +74,10 @@ public class RoleService {
 
         Role role = optionalRole.get();
 
-        // システムロールは編集不可
         if (role.getIsSystemRole()) {
             throw new IllegalArgumentException("システムロールは編集できません");
         }
 
-        // ロール名の重複チェック（自分自身を除く）
         Optional<Role> existingRole = roleRepository.findByNameAndCompany_Id(name, role.getCompanyId());
         if (existingRole.isPresent() && !existingRole.get().getId().equals(roleId)) {
             throw new IllegalArgumentException("このロール名は既に使用されています");
@@ -101,7 +86,6 @@ public class RoleService {
         role.setName(name);
         role.setDescription(description);
 
-        // 権限を更新
         if (permissionIds != null) {
             Set<Permission> permissions = permissionIds.stream()
                     .map(permissionRepository::findById)
@@ -114,9 +98,6 @@ public class RoleService {
         return roleRepository.save(role);
     }
 
-    /**
-     * ロールを削除
-     */
     @Transactional
     public void deleteRole(Long roleId) {
         Optional<Role> optionalRole = roleRepository.findById(roleId);
@@ -126,12 +107,10 @@ public class RoleService {
 
         Role role = optionalRole.get();
 
-        // システムロールは削除不可
         if (role.getIsSystemRole()) {
             throw new IllegalArgumentException("システムロールは削除できません");
         }
 
-        // ユーザーに割り当てられている場合は削除不可
         if (!role.getUsers().isEmpty()) {
             throw new IllegalArgumentException("このロールはユーザーに割り当てられているため削除できません");
         }
@@ -139,23 +118,14 @@ public class RoleService {
         roleRepository.delete(role);
     }
 
-    /**
-     * 全権限を取得
-     */
     public List<Permission> getAllPermissions() {
         return permissionRepository.findAll();
     }
 
-    /**
-     * カテゴリ別に権限を取得
-     */
     public List<Permission> getPermissionsByCategory(String category) {
         return permissionRepository.findByCategory(category);
     }
 
-    /**
-     * ユーザーにロールを割り当て
-     */
     @Transactional
     public void assignRoleToUser(Long userId, Long roleId) {
         Optional<User> optionalUser = userRepository.findById(userId);
@@ -171,7 +141,6 @@ public class RoleService {
         User user = optionalUser.get();
         Role role = optionalRole.get();
 
-        // 同じ企業に属しているか確認
         if (!user.getCompany().getId().equals(role.getCompanyId())) {
             throw new IllegalArgumentException("ユーザーとロールが異なる企業に属しています");
         }
@@ -180,9 +149,6 @@ public class RoleService {
         userRepository.save(user);
     }
 
-    /**
-     * ユーザーからロールを削除
-     */
     @Transactional
     public void removeRoleFromUser(Long userId, Long roleId) {
         Optional<User> optionalUser = userRepository.findById(userId);
@@ -195,9 +161,6 @@ public class RoleService {
         userRepository.save(user);
     }
 
-    /**
-     * ユーザーのロールを更新
-     */
     @Transactional
     public void updateUserRoles(Long userId, Set<Long> roleIds) {
         Optional<User> optionalUser = userRepository.findById(userId);
@@ -207,14 +170,13 @@ public class RoleService {
 
         User user = optionalUser.get();
 
-        // 新しいロールセットを作成
         Set<Role> newRoles = new HashSet<>();
         if (roleIds != null && !roleIds.isEmpty()) {
             for (Long roleId : roleIds) {
                 Optional<Role> optionalRole = roleRepository.findById(roleId);
                 if (optionalRole.isPresent()) {
                     Role role = optionalRole.get();
-                    // 同じ企業に属しているか確認
+                    
                     if (user.getCompany().getId().equals(role.getCompanyId())) {
                         newRoles.add(role);
                     }

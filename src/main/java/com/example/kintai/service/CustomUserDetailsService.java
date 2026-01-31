@@ -16,8 +16,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // This method is not used directly.
-        // We need a company code to authenticate.
+        
         throw new UnsupportedOperationException("loadUserByUsername is not supported. Use loadUserByUsernameAndCompanyCode instead.");
     }
 

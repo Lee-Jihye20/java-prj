@@ -4,10 +4,10 @@ import java.time.YearMonth;
 
 public class WeeklyHighlightDTO {
     private YearMonth yearMonth;
-    private String rating; // S, A, B, C, D, or null (事実ベース評価の総合スコアから算出)
+    private String rating; 
     private double workHours;
     private double overtimeHours;
-    private double totalScore; // 事実ベース評価の総合スコア
+    private double totalScore; 
 
     public WeeklyHighlightDTO() {
     }
@@ -19,7 +19,6 @@ public class WeeklyHighlightDTO {
         this.totalScore = 0.0;
     }
 
-    // Getters and Setters
     public YearMonth getYearMonth() {
         return yearMonth;
     }
@@ -28,7 +27,6 @@ public class WeeklyHighlightDTO {
         this.yearMonth = yearMonth;
     }
     
-    // 後方互換性のため（テンプレートで使用中）
     public java.time.LocalDate getWeekStartDate() {
         return yearMonth != null ? yearMonth.atDay(1) : null;
     }
@@ -67,7 +65,7 @@ public class WeeklyHighlightDTO {
 
     public void setTotalScore(double totalScore) {
         this.totalScore = totalScore;
-        // 総合スコアから評価を算出（100点満点）
+        
         if (totalScore >= 90) {
             this.rating = "S";
         } else if (totalScore >= 80) {

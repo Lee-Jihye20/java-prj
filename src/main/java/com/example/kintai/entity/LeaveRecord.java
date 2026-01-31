@@ -23,13 +23,11 @@ public class LeaveRecord {
     private LocalDateTime leaveEnd;
 
     @Column(name = "leave_type", length = 20)
-    private String leaveType = "DEDUCTION"; // DEDUCTION（控除）, PAID_LEAVE（有給）
+    private String leaveType = "DEDUCTION"; 
 
-    // Constructors
     public LeaveRecord() {
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -70,9 +68,6 @@ public class LeaveRecord {
         this.leaveType = leaveType;
     }
 
-    /**
-     * 中抜け時間を分単位で取得
-     */
     public long getLeaveMinutes() {
         if (leaveStart == null || leaveEnd == null) {
             return 0;

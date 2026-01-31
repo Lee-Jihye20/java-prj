@@ -19,9 +19,7 @@ public class Company {
     private String name;
 
     @Column(nullable = false, unique = true)
-    private String companyCode; // Used for login
-
-    // Getters and Setters
+    private String companyCode; 
 
     public Long getId() {
         return id;

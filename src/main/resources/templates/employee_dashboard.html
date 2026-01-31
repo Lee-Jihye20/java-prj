@@ -28,7 +28,7 @@
             <p th:text="${errorMessage}">エラーが発生しました</p>
         </div>
 
-        <!-- 残業超過の案内（異常検知で検出された場合） -->
+        
         <div th:if="${overtimeExcessAttendances != null and !overtimeExcessAttendances.isEmpty()}" 
              style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-left: 6px solid #e65100; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
             <h3 style="margin: 0 0 10px 0; color: #e65100; font-size: 1.15em;">⚠️ 残業超過が検知されています</h3>
@@ -45,7 +45,7 @@
             </div>
         </div>
 
-        <!-- 退勤未打刻の案内（異常検知で検出された場合） -->
+        
         <div th:if="${missingCheckoutAttendances != null and !missingCheckoutAttendances.isEmpty()}" 
              style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 6px solid #1565c0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
             <h3 style="margin: 0 0 10px 0; color: #1565c0; font-size: 1.15em;">⚠️ 退勤未打刻が検知されています</h3>
@@ -63,7 +63,7 @@
         </div>
 
         <div class="dashboard-content">
-            <!-- 統計情報 -->
+            
             <section class="card work-status-section" th:if="${statistics != null}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h2 style="margin: 0;">勤務状況</h2>
@@ -81,7 +81,7 @@
                     </div>
                 </div>
                 
-                <!-- 簡易表示 -->
+                
                 <div id="workStatusSimpleView" style="display: none;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
                         <div class="stat-card">
@@ -95,7 +95,7 @@
                     </div>
                 </div>
                 
-                <!-- 詳細表示（フルタイム: 通常勤務は1日8hまで、残業は8h超から） -->
+                
                 <div id="workStatusDetailView">
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -202,7 +202,7 @@
                 </nav>
             </section>
 
-            <!-- 管理機能メニュー（権限がある場合のみ表示） -->
+            
             <section class="card admin-menu-section" th:if="${canAccessAdmin}">
                 <h2>管理機能</h2>
                 <nav class="menu">
@@ -217,7 +217,7 @@
                 </nav>
             </section>
 
-            <!-- ハイライト（前月の評価・勤務時間・残業時間） -->
+            
             <section class="card highlights-section" th:if="${highlights != null and !highlights.isEmpty()}">
                 <h2>📊 前月のハイライト</h2>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">

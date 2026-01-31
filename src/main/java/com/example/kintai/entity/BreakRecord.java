@@ -23,13 +23,11 @@ public class BreakRecord {
     private LocalDateTime breakEnd;
 
     @Column(name = "break_type", length = 20)
-    private String breakType = "FREE"; // FREE, FIXED_LUNCH
+    private String breakType = "FREE"; 
 
-    // Constructors
     public BreakRecord() {
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -70,9 +68,6 @@ public class BreakRecord {
         this.breakType = breakType;
     }
 
-    /**
-     * 休憩時間を分単位で取得
-     */
     public long getBreakMinutes() {
         if (breakStart == null || breakEnd == null) {
             return 0;
@@ -80,4 +75,3 @@ public class BreakRecord {
         return java.time.Duration.between(breakStart, breakEnd).toMinutes();
     }
 }
-

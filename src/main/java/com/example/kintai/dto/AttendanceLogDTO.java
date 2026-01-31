@@ -2,9 +2,6 @@ package com.example.kintai.dto;
 
 import java.time.LocalDateTime;
 
-/**
- * 打刻ログ表示用DTO
- */
 public class AttendanceLogDTO {
     private LocalDateTime timestamp;
     private String username;

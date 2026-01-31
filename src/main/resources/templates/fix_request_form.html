@@ -69,13 +69,13 @@
                         <label for="requestType">修正項目</label>
                         <select id="requestType" name="requestType" required>
                             <option value="">選択してください</option>
-                            <!-- 残業超過時は申請種別とフローを表示（打刻・休憩は開始・終了を一度に申請可能） -->
+                            
                             <option th:if="${isOvertimeExcess}" value="CHECK_IN_AND_OUT">打刻ミス（出勤・退勤）</option>
                                 <option th:if="${isOvertimeExcess}" value="BREAK_START_AND_END">休憩未入力（開始・終了）</option>
                                 <option th:if="${isOvertimeExcess}" value="OVERTIME_APPLICATION">本当に残業</option>
-                            <!-- 退勤未打刻時は退勤時刻の打刻訂正のみ -->
+                            
                             <option th:if="${isMissingCheckout}" value="CHECK_OUT" th:selected="${isMissingCheckout}">打刻ミス（退勤）→ 打刻訂正申請 → 承認 → 再計算</option>
-                            <!-- 通常の修正依頼 -->
+                            
                             <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="CHECK_IN">出勤時刻</option>
                             <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="CHECK_OUT">退勤時刻</option>
                             <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="BREAK_START">休憩開始時刻</option>

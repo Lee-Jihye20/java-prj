@@ -33,42 +33,33 @@ public class ExportController {
     @Autowired
     private PermissionService permissionService;
 
-    /**
-     * エクスポート専用ページを表示
-     */
     @GetMapping("/page")
     public String exportPage(Authentication authentication, Model model) {
         User user = getUserFromAuth(authentication);
         
-        // 権限チェック：エクスポート権限が必要
         if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
             return "redirect:/employee/dashboard";
         }
 
-        // 同じ企業のユーザー一覧を取得（管理者ロールを除外）
         List<User> companyUsers = userRepository.findAllByCompanyId(user.getCompany().getId())
                 .stream()
                 .filter(u -> !"ADMIN".equals(u.getRole()))
                 .collect(java.util.stream.Collectors.toList());
         
-        // 管理者ロールのユーザー一覧を取得（管理者ログエクスポート用）
         List<User> adminUsers = userRepository.findAllByCompanyId(user.getCompany().getId())
                 .stream()
                 .filter(u -> "ADMIN".equals(u.getRole()))
                 .collect(java.util.stream.Collectors.toList());
         
-        // 現在の日付を取得（デフォルト値用）
         LocalDate today = LocalDate.now();
         int currentYear = today.getYear();
         int currentMonth = today.getMonthValue();
 
-        // 年のリストを生成（2000年～2099年）
         List<Integer> years = new java.util.ArrayList<>();
         for (int year = 2000; year <= 2099; year++) {
             years.add(year);
         }
         
-        // 月のリストを生成（1月～12月）
         List<Integer> months = new java.util.ArrayList<>();
         for (int month = 1; month <= 12; month++) {
             months.add(month);
@@ -87,9 +78,6 @@ public class ExportController {
         return "export_page";
     }
 
-    /**
-     * 日別勤怠データをエクスポート（管理者用）
-     */
     @GetMapping("/daily")
     public ResponseEntity<ByteArrayResource> exportDaily(
             @RequestParam Long userId,
@@ -98,12 +86,10 @@ public class ExportController {
         try {
             User user = getUserFromAuth(authentication);
             
-            // 権限チェック：エクスポート権限が必要
             if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
                 return ResponseEntity.status(403).build();
             }
 
-            // ユーザーが同じ企業に属しているか確認
             User targetUser = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("ユーザーが見つかりません"));
             if (!targetUser.getCompany().getId().equals(user.getCompany().getId())) {
@@ -132,9 +118,6 @@ public class ExportController {
         }
     }
 
-    /**
-     * 月次集計データをエクスポート（管理者用）
-     */
     @GetMapping("/monthly")
     public ResponseEntity<ByteArrayResource> exportMonthly(
             @RequestParam Long userId,
@@ -144,12 +127,10 @@ public class ExportController {
         try {
             User user = getUserFromAuth(authentication);
             
-            // 権限チェック：エクスポート権限が必要
             if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
                 return ResponseEntity.status(403).build();
             }
 
-            // ユーザーが同じ企業に属しているか確認
             User targetUser = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("ユーザーが見つかりません"));
             if (!targetUser.getCompany().getId().equals(user.getCompany().getId())) {
@@ -176,9 +157,6 @@ public class ExportController {
         }
     }
 
-    /**
-     * 打刻ログをエクスポート（管理者用、証跡用）
-     */
     @GetMapping("/log")
     public ResponseEntity<ByteArrayResource> exportLog(
             @RequestParam(required = false) String startDate,
@@ -189,12 +167,10 @@ public class ExportController {
         try {
             User user = getUserFromAuth(authentication);
             
-            // 権限チェック：エクスポート権限が必要
             if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
                 return ResponseEntity.status(403).build();
             }
 
-            // 日付が空の場合はエラー
             if (startDate == null || startDate.trim().isEmpty() || endDate == null || endDate.trim().isEmpty()) {
                 return ResponseEntity.badRequest().build();
             }
@@ -223,9 +199,6 @@ public class ExportController {
         }
     }
 
-    /**
-     * 管理者ログをエクスポート（管理者用）
-     */
     @GetMapping("/admin-log")
     public ResponseEntity<ByteArrayResource> exportAdminLog(
             @RequestParam Long adminId,
@@ -235,19 +208,16 @@ public class ExportController {
         try {
             User user = getUserFromAuth(authentication);
             
-            // 権限チェック：エクスポート権限が必要
             if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
                 return ResponseEntity.status(403).build();
             }
 
-            // 管理者ユーザーが同じ企業に属しているか確認
             User targetAdmin = userRepository.findById(adminId)
                     .orElseThrow(() -> new IllegalArgumentException("管理者が見つかりません"));
             if (!targetAdmin.getCompany().getId().equals(user.getCompany().getId())) {
                 return ResponseEntity.status(403).build();
             }
             
-            // 管理者ロールか確認
             if (!"ADMIN".equals(targetAdmin.getRole())) {
                 return ResponseEntity.status(400).build();
             }
@@ -277,9 +247,6 @@ public class ExportController {
         }
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         return (User) authentication.getPrincipal();
     }

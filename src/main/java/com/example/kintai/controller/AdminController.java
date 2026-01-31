@@ -95,9 +95,6 @@ public class AdminController {
     @Autowired
     private FactBasedEvaluationRepository factBasedEvaluationRepository;
 
-    /**
-     * 管理者ダッシュボード（権限ベースのアクセス制御）
-     */
     @GetMapping("/dashboard")
     public String dashboard(Authentication authentication, Model model) {
         if (authentication == null || authentication.getPrincipal() == null) {
@@ -110,7 +107,6 @@ public class AdminController {
             return "redirect:/login";
         }
         
-        // 管理者機能にアクセスできる権限があるかチェック
         if (!permissionService.canAccessAdminFeatures(user)) {
             return "redirect:/employee/dashboard";
         }
@@ -125,7 +121,6 @@ public class AdminController {
 
         List<FixRequest> pendingRequests = fixRequestService.findPendingRequestsByCompanyId(companyId);
 
-        // 未解決の異常検知数を取得（残業超過は OvertimeExcessService に集約）
         long unresolvedOvertime = overtimeExcessService.getUnresolvedOvertimeCount(companyId);
         List<Attendance> missingCheckoutAnomalies = attendanceService.detectMissingCheckOut(companyId);
         long unresolvedMissing = missingCheckoutAnomalies.stream()
@@ -133,11 +128,9 @@ public class AdminController {
                 .count();
         int unresolvedAnomalyCount = (int) (unresolvedOvertime + unresolvedMissing);
 
-        // 今日の全社員の勤務状況を取得
         List<EmployeeTodayStatusDTO> todayStatusList = getTodayEmployeeStatuses(companyUsers);
         model.addAttribute("todayStatusList", todayStatusList);
         
-        // フィルタリングしたリストを作成
         List<EmployeeTodayStatusDTO> workingOrCompletedList = new ArrayList<>();
         List<EmployeeTodayStatusDTO> notStartedOrLateList = new ArrayList<>();
         for (EmployeeTodayStatusDTO status : todayStatusList) {
@@ -151,7 +144,6 @@ public class AdminController {
         model.addAttribute("notStartedOrLateList", notStartedOrLateList);
         model.addAttribute("unresolvedAnomalyCount", unresolvedAnomalyCount);
 
-        // 権限情報をモデルに追加
         boolean canViewUsers = permissionService.hasPermission(user, "VIEW_USER_LIST");
         boolean canManageUsers = permissionService.hasPermission(user, "MANAGE_USER");
         boolean canManageRoles = permissionService.hasPermission(user, "MANAGE_ROLE");
@@ -175,9 +167,6 @@ public class AdminController {
         return "admin_dashboard";
     }
 
-    /**
-     * 修正依頼一覧(管理者)
-     */
     @GetMapping("/fix-requests")
     public String fixRequests(Authentication authentication, Model model,
                               @RequestParam(required = false) String success,
@@ -186,7 +175,6 @@ public class AdminController {
                               @RequestParam(required = false) String status) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：修正依頼承認権限が必要
         if (!permissionService.hasPermission(admin, "APPROVE_FIX_REQUEST")) {
             return "redirect:/employee/dashboard";
         }
@@ -224,15 +212,11 @@ public class AdminController {
         return "fix_request_list";
     }
 
-    /**
-     * 修正依頼承認
-     */
     @PostMapping("/fix-request/approve/{id}")
     public String approveFixRequest(@PathVariable Long id, Authentication authentication) {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：修正依頼承認権限が必要
             if (!permissionService.hasPermission(admin, "APPROVE_FIX_REQUEST")) {
                 return "redirect:/employee/dashboard";
             }
@@ -245,15 +229,11 @@ public class AdminController {
         }
     }
 
-    /**
-     * 修正依頼却下
-     */
     @PostMapping("/fix-request/reject/{id}")
     public String rejectFixRequest(@PathVariable Long id, Authentication authentication) {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：修正依頼承認権限が必要
             if (!permissionService.hasPermission(admin, "APPROVE_FIX_REQUEST")) {
                 return "redirect:/employee/dashboard";
             }
@@ -266,14 +246,10 @@ public class AdminController {
         }
     }
 
-    /**
-     * 異常検知画面
-     */
     @GetMapping("/anomaly-detection")
     public String anomalyDetection(Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー一覧閲覧権限が必要
         if (!permissionService.hasPermission(admin, "VIEW_USER_LIST")) {
             return "redirect:/employee/dashboard";
         }
@@ -282,19 +258,16 @@ public class AdminController {
         List<Attendance> overtimeList = overtimeExcessService.getUnresolvedOvertimeAnomalies(companyId);
         List<Attendance> missingCheckout = attendanceService.detectMissingCheckOut(companyId);
 
-        // 解決済みを除外し、未解決の異常のみ表示（残業超過は OvertimeExcessService で既に未解決のみ）
         List<Attendance> missingCheckoutList = missingCheckout.stream()
                 .filter(att -> !anomalyApprovalRepository.existsByAttendance_IdAndAnomalyTypeAndApprovedTrue(att.getId(), "MISSING_CHECKOUT"))
                 .toList();
 
-        // ユーザー名マップを作成
         List<User> companyUsers = userRepository.findAllByCompanyId(companyId);
         Map<Long, String> userMap = new HashMap<>();
         for (User u : companyUsers) {
             userMap.put(u.getId(), u.getUsername());
         }
 
-        // 既存の承認情報を取得（未解決一覧に表示する分のみ）
         Map<Long, Map<String, Object>> anomalyApprovalMap = new HashMap<>();
         for (Attendance att : overtimeList) {
             Optional<AnomalyApproval> approval = anomalyApprovalRepository.findFirstByAttendance_IdAndAnomalyType(att.getId(), OvertimeExcessService.ANOMALY_TYPE_OVERTIME);
@@ -329,9 +302,6 @@ public class AdminController {
         return "anomaly_detection";
     }
 
-    /**
-     * 異常検知の理由・承認・補正を保存
-     */
     @PostMapping("/anomaly/approval")
     public String saveAnomalyApproval(@RequestParam Long attendanceId,
                                       @RequestParam Long userId,
@@ -344,14 +314,13 @@ public class AdminController {
                                       RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：修正依頼承認権限が必要
         if (!permissionService.hasPermission(admin, "APPROVE_FIX_REQUEST")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
         }
         
         try {
-            // 勤怠記録を取得
+            
             Optional<Attendance> attendanceOpt = attendanceRepository.findById(attendanceId);
             if (attendanceOpt.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", "勤怠記録が見つかりません");
@@ -360,7 +329,6 @@ public class AdminController {
             
             Attendance attendance = attendanceOpt.get();
             
-            // 既存の承認情報を取得または新規作成
             Optional<AnomalyApproval> existingApproval = anomalyApprovalRepository.findByAttendance_Id(attendanceId);
             AnomalyApproval approval;
             
@@ -372,7 +340,6 @@ public class AdminController {
                 approval.setAnomalyType(anomalyType);
             }
             
-            // 承認情報を更新
             approval.setReason(reason);
             approval.setApproved(approved);
             
@@ -399,14 +366,10 @@ public class AdminController {
         }
     }
 
-    /**
-     * 統合設定画面
-     */
     @GetMapping("/settings")
     public String settings(Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：企業設定管理権限またはユーザー管理権限が必要
         boolean canManageSettings = permissionService.hasPermission(admin, "MANAGE_COMPANY_SETTINGS");
         boolean canManageUsers = permissionService.hasPermission(admin, "MANAGE_USER");
         
@@ -416,11 +379,9 @@ public class AdminController {
         
         Long companyId = admin.getCompany().getId();
         
-        // 休憩設定を取得
         CompanySettings breakSettings = companySettingsRepository.findByCompanyId(companyId)
                 .orElse(new CompanySettings());
         
-        // 全ユーザーを取得（勤務設定用）
         List<User> companyUsers = new ArrayList<>();
         if (canManageUsers) {
             companyUsers = userRepository.findAllByCompanyId(companyId);
@@ -434,17 +395,11 @@ public class AdminController {
         return "settings";
     }
 
-    /**
-     * 休憩設定画面（後方互換性のため残すが、設定ページにリダイレクト）
-     */
     @GetMapping("/break-settings")
     public String breakSettings(Authentication authentication, Model model) {
         return "redirect:/admin/settings";
     }
 
-    /**
-     * 休憩設定更新
-     */
     @PostMapping("/break-settings")
     public String updateBreakSettings(Authentication authentication,
                                       @RequestParam(required = false) Integer breakCountLimit,
@@ -456,7 +411,6 @@ public class AdminController {
                                       RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：企業設定管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_COMPANY_SETTINGS")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
@@ -496,9 +450,6 @@ public class AdminController {
         return "redirect:/admin/settings";
     }
 
-    /**
-     * Slack通知設定更新
-     */
     @PostMapping("/slack-settings")
     public String updateSlackSettings(Authentication authentication,
                                       @RequestParam(required = false) Boolean slackNotificationEnabled,
@@ -507,7 +458,6 @@ public class AdminController {
                                       RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：企業設定管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_COMPANY_SETTINGS")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
@@ -535,24 +485,18 @@ public class AdminController {
         return "redirect:/admin/settings";
     }
 
-    /**
-     * 社員アカウント一覧
-     */
     @GetMapping("/users")
     public String userList(@RequestParam(required = false) String search,
                            Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // ユーザー一覧閲覧権限をチェック
         if (!permissionService.hasPermission(admin, "VIEW_USER_LIST")) {
             return "redirect:/employee/dashboard";
         }
         Long companyId = admin.getCompany().getId();
         
-        // Companyエンティティを確実にロードするため、明示的に取得
         List<User> companyUsers = userRepository.findAllByCompanyId(companyId);
         
-        // 検索フィルタリング
         if (search != null && !search.trim().isEmpty()) {
             String searchLower = search.trim().toLowerCase();
             companyUsers = companyUsers.stream()
@@ -560,18 +504,15 @@ public class AdminController {
                     .collect(java.util.stream.Collectors.toList());
         }
         
-        // 企業コードを取得（ログイン時に必要）- CompanyRepositoryから直接取得
         String companyCode = companyRepository.findById(companyId)
                 .map(com.example.kintai.entity.Company::getCompanyCode)
                 .orElse("");
 
-        // ロール情報を取得
         List<Role> roles = roleService.getRolesByCompanyId(companyId);
 
         int currentYear = java.time.Year.now().getValue();
         int currentMonth = java.time.LocalDate.now().getMonthValue();
         
-        // 各ユーザーの当月の勤務統計を計算
         Map<Long, com.example.kintai.dto.MonthlyReportDTO> userMonthlyStats = new HashMap<>();
         for (User user : companyUsers) {
             if (!"ADMIN".equals(user.getRole())) {
@@ -580,7 +521,7 @@ public class AdminController {
                             user, currentYear, currentMonth);
                     userMonthlyStats.put(user.getId(), report);
                 } catch (Exception e) {
-                    // エラーが発生した場合は統計を表示しない
+                    
                 }
             }
         }
@@ -596,9 +537,6 @@ public class AdminController {
         return "user_list";
     }
 
-    /**
-     * 管理者の操作履歴（ログ）- 管理者アカウントのみ
-     */
     @GetMapping("/my-actions")
     public String myActions(Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
@@ -614,9 +552,6 @@ public class AdminController {
         return "admin_action_history";
     }
 
-    /**
-     * 指定管理者の操作履歴（ログ）表示 - 社員一覧の「ログ」ボタンから
-     */
     @GetMapping("/users/{userId}/actions")
     public String userActions(@PathVariable Long userId, Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
@@ -644,26 +579,20 @@ public class AdminController {
         return "admin_action_history";
     }
 
-    /**
-     * 社員アカウント作成画面
-     */
     @GetMapping("/users/create")
     public String createUserForm(Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
             return "redirect:/employee/dashboard";
         }
         
         Long companyId = admin.getCompany().getId();
         
-        // 企業コードを取得（ログイン時に必要）- CompanyRepositoryから直接取得
         String companyCode = companyRepository.findById(companyId)
                 .map(com.example.kintai.entity.Company::getCompanyCode)
                 .orElse("");
         
-        // ロール情報を取得
         List<Role> roles = roleService.getRolesByCompanyId(companyId);
         List<Permission> permissions = roleService.getAllPermissions();
         
@@ -674,9 +603,6 @@ public class AdminController {
         return "create_user";
     }
 
-    /**
-     * 社員アカウント作成
-     */
     @PostMapping("/users/create")
     public String createUser(Authentication authentication,
                              @RequestParam String username,
@@ -687,32 +613,28 @@ public class AdminController {
                              RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
         }
         
-        // 同じ企業内でユーザー名の重複チェック
         Optional<User> existingUser = userRepository.findByUsernameAndCompanyId(username, admin.getCompany().getId());
         if (existingUser.isPresent()) {
             redirectAttributes.addFlashAttribute("errorMessage", "このユーザー名は既に使用されています");
             return "redirect:/admin/users/create";
         }
 
-        // 権限のバリデーション
         if (!"EMPLOYEE".equals(role) && !"ADMIN".equals(role)) {
             redirectAttributes.addFlashAttribute("errorMessage", "無効な権限が指定されました");
             return "redirect:/admin/users/create";
         }
 
-        // 新しいユーザーを作成
         User newUser = new User();
         newUser.setUsername(username);
-        newUser.setPassword(password); // 現在は平文で保存（将来的にはBCryptを使用すべき）
+        newUser.setPassword(password); 
         newUser.setRole(role);
         newUser.setCompany(admin.getCompany());
-        // デフォルトでフルタイム、始業時間9時に設定
+        
         newUser.setWorkType("FULLTIME");
         newUser.setStartTime(LocalTime.of(9, 0));
         if (slackWebhookUrl != null && !slackWebhookUrl.isEmpty()) {
@@ -725,7 +647,6 @@ public class AdminController {
         userRepository.save(newUser);
         adminActionLogService.log(admin, "CREATE_USER", "USER", newUser.getId(), "ユーザー: " + username);
         
-        // 企業コードを含む成功メッセージ - CompanyRepositoryから直接取得
         Long companyId = admin.getCompany().getId();
         String companyCode = companyRepository.findById(companyId)
                 .map(com.example.kintai.entity.Company::getCompanyCode)
@@ -735,9 +656,6 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    /**
-     * ユーザー権限変更
-     */
     @PostMapping("/users/{userId}/role")
     public String updateUserRole(@PathVariable Long userId,
                                   @RequestParam String role,
@@ -745,19 +663,16 @@ public class AdminController {
                                   RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
         }
         
-        // 権限のバリデーション
         if (!"EMPLOYEE".equals(role) && !"ADMIN".equals(role)) {
             redirectAttributes.addFlashAttribute("errorMessage", "無効な権限が指定されました");
             return "redirect:/admin/users";
         }
         
-        // ユーザーを取得
         Optional<User> optionalUser = userRepository.findById(userId);
         if (optionalUser.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage", "ユーザーが見つかりません");
@@ -766,13 +681,11 @@ public class AdminController {
         
         User user = optionalUser.get();
         
-        // 同じ企業に属しているか確認
         if (!user.getCompany().getId().equals(admin.getCompany().getId())) {
             redirectAttributes.addFlashAttribute("errorMessage", "このユーザーの権限を変更する権限がありません");
             return "redirect:/admin/users";
         }
         
-        // 権限を更新
         user.setRole(role);
         userRepository.save(user);
         
@@ -782,14 +695,10 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    /**
-     * ロール一覧・管理画面
-     */
     @GetMapping("/roles")
     public String roleList(Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ロール管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_ROLE")) {
             return "redirect:/employee/dashboard";
         }
@@ -799,7 +708,6 @@ public class AdminController {
         List<Role> roles = roleService.getRolesByCompanyId(companyId);
         List<Permission> permissions = roleService.getAllPermissions();
         
-        // カテゴリごとに権限をグループ化
         Map<String, List<Permission>> permissionsByCategory = new HashMap<>();
         for (Permission permission : permissions) {
             String category = permission.getCategory();
@@ -813,9 +721,6 @@ public class AdminController {
         return "role_list";
     }
 
-    /**
-     * ロール作成
-     */
     @PostMapping("/roles/create")
     public String createRole(@RequestParam String name,
                              @RequestParam(required = false) String description,
@@ -825,7 +730,6 @@ public class AdminController {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：ロール管理権限が必要
             if (!permissionService.hasPermission(admin, "MANAGE_ROLE")) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/employee/dashboard";
@@ -843,9 +747,6 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    /**
-     * ロール更新
-     */
     @PostMapping("/roles/{roleId}/update")
     public String updateRole(@PathVariable Long roleId,
                              @RequestParam String name,
@@ -856,7 +757,6 @@ public class AdminController {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：ロール管理権限が必要
             if (!permissionService.hasPermission(admin, "MANAGE_ROLE")) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/employee/dashboard";
@@ -872,9 +772,6 @@ public class AdminController {
         return "redirect:/admin/roles";
     }
 
-    /**
-     * ロール削除
-     */
     @PostMapping("/roles/{roleId}/delete")
     public String deleteRole(@PathVariable Long roleId,
                              Authentication authentication,
@@ -882,7 +779,6 @@ public class AdminController {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：ロール管理権限が必要
             if (!permissionService.hasPermission(admin, "MANAGE_ROLE")) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/employee/dashboard";
@@ -896,9 +792,6 @@ public class AdminController {
         return "redirect:/admin/roles";
     }
 
-    /**
-     * ユーザーにロールを割り当て（基本ロールとカスタムロールの両方）
-     */
     @PostMapping("/users/{userId}/roles")
     public String assignRolesToUser(@PathVariable Long userId,
                                     @RequestParam(required = false) String role,
@@ -908,13 +801,11 @@ public class AdminController {
         try {
             User admin = getUserFromAuth(authentication);
             
-            // 権限チェック：ユーザー管理権限が必要
             if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/employee/dashboard";
             }
             
-            // ユーザーを取得
             Optional<User> optionalUser = userRepository.findById(userId);
             if (optionalUser.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", "ユーザーが見つかりません");
@@ -923,13 +814,11 @@ public class AdminController {
             
             User user = optionalUser.get();
             
-            // 同じ企業に属しているか確認
             if (!user.getCompany().getId().equals(admin.getCompany().getId())) {
                 redirectAttributes.addFlashAttribute("errorMessage", "このユーザーのロールを変更する権限がありません");
                 return "redirect:/admin/users";
             }
             
-            // 基本ロールを更新
             if (role != null && !role.isEmpty()) {
                 if (!"EMPLOYEE".equals(role) && !"ADMIN".equals(role)) {
                     redirectAttributes.addFlashAttribute("errorMessage", "無効な権限が指定されました");
@@ -938,11 +827,9 @@ public class AdminController {
                 user.setRole(role);
             }
             
-            // カスタムロールを更新
             Set<Long> roleSet = roleIds != null ? new HashSet<>(roleIds) : new HashSet<>();
             roleService.updateUserRoles(userId, roleSet);
             
-            // ユーザーを保存
             userRepository.save(user);
             adminActionLogService.log(admin, "UPDATE_ROLES", "USER", userId, "ユーザー: " + user.getUsername() + " のロールを更新");
             
@@ -953,9 +840,6 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    /**
-     * 管理者用：特定ユーザーの勤怠カレンダー表示
-     */
     @GetMapping("/users/{userId}/calendar")
     public String userCalendar(@PathVariable Long userId,
                                 @RequestParam(required = false) Integer year,
@@ -964,12 +848,10 @@ public class AdminController {
                                 Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー一覧閲覧権限が必要
         if (!permissionService.hasPermission(admin, "VIEW_USER_LIST")) {
             return "redirect:/employee/dashboard";
         }
         
-        // ユーザーが同じ企業に属しているか確認
         Optional<User> targetUserOptional = userRepository.findById(userId);
         if (targetUserOptional.isEmpty()) {
             return "redirect:/admin/users?error=ユーザーが見つかりません";
@@ -980,14 +862,12 @@ public class AdminController {
             return "redirect:/admin/users?error=権限がありません";
         }
 
-        // デフォルトは当月
         if (year == null || month == null) {
             LocalDate now = LocalDate.now();
             year = now.getYear();
             month = now.getMonthValue();
         }
 
-        // カレンダーデータを作成
         YearMonth yearMonth = YearMonth.of(year, month);
         List<Attendance> attendances = attendanceService.getAttendanceByDateRange(
                 userId,
@@ -995,7 +875,6 @@ public class AdminController {
                 yearMonth.atEndOfMonth().atTime(23, 59, 59)
         );
 
-        // 日付ごとの勤怠データをマップに変換
         Map<Integer, CalendarDay> calendarDays = new HashMap<>();
         for (Attendance attendance : attendances) {
             if (attendance.getCheckIn() != null) {
@@ -1004,11 +883,9 @@ public class AdminController {
                 calendarDay.setDay(day);
                 calendarDay.setAttendance(attendance);
 
-                // 休憩記録を取得（BreakRecordService に集約）
                 List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendance.getId());
                 calendarDay.setBreakRecords(breakRecords);
 
-                // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
                 if (attendance.getCheckOut() != null) {
                     long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
                     workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
@@ -1016,33 +893,29 @@ public class AdminController {
 
                     calendarDay.setWorkHours(workMinutes / 60.0);
 
-                    // ステータスを設定（残業かどうか）
-                    if (workMinutes > 480) { // 8時間以上
+                    if (workMinutes > 480) { 
                         calendarDay.setStatus("overtime");
                     } else {
                         calendarDay.setStatus("normal");
                     }
                 } else {
-                    calendarDay.setStatus("incomplete"); // 退勤未打刻
+                    calendarDay.setStatus("incomplete"); 
                 }
 
                 calendarDays.put(day, calendarDay);
             }
         }
 
-        // カレンダーグリッドを作成
         int daysInMonth = yearMonth.lengthOfMonth();
-        int firstDayOfWeek = yearMonth.atDay(1).getDayOfWeek().getValue(); // 1=月曜, 7=日曜
+        int firstDayOfWeek = yearMonth.atDay(1).getDayOfWeek().getValue(); 
 
         List<List<CalendarDay>> weeks = new ArrayList<>();
         List<CalendarDay> week = new ArrayList<>();
 
-        // 最初の週の空白を埋める
         for (int i = 1; i < firstDayOfWeek; i++) {
             week.add(null);
         }
 
-        // 日付を配置
         for (int day = 1; day <= daysInMonth; day++) {
             CalendarDay calendarDay = calendarDays.getOrDefault(day, new CalendarDay());
             if (calendarDay.getDay() == 0) {
@@ -1050,14 +923,12 @@ public class AdminController {
             }
             week.add(calendarDay);
 
-            // 週の終わり（日曜日）
             if ((firstDayOfWeek + day - 1) % 7 == 0) {
                 weeks.add(week);
                 week = new ArrayList<>();
             }
         }
 
-        // 最後の週に空白を追加
         if (!week.isEmpty()) {
             while (week.size() < 7) {
                 week.add(null);
@@ -1079,14 +950,11 @@ public class AdminController {
         return "admin_user_calendar";
     }
 
-    /**
-     * カレンダーの日付情報を保持するクラス
-     */
     public static class CalendarDay {
         private int day;
         private Attendance attendance;
         private double workHours;
-        private String status; // normal, overtime, incomplete, absent
+        private String status; 
         private List<BreakRecord> breakRecords = new ArrayList<>();
 
         public CalendarDay() {
@@ -1137,16 +1005,12 @@ public class AdminController {
         }
     }
 
-    /**
-     * 勤怠詳細情報を取得（API）- 管理者用
-     */
     @GetMapping("/api/attendance/{attendanceId}/details")
     @ResponseBody
     public Map<String, Object> getAttendanceDetails(@PathVariable Long attendanceId,
                                                      Authentication authentication) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー一覧閲覧権限が必要
         if (!permissionService.hasPermission(admin, "VIEW_USER_LIST")) {
             throw new IllegalArgumentException("権限がありません");
         }
@@ -1158,12 +1022,10 @@ public class AdminController {
         
         Attendance attendance = attendanceOptional.get();
         
-        // 権限チェック：管理者は同じ企業に属しているユーザーの勤怠を閲覧可能
         if (!attendance.getUser().getCompany().getId().equals(admin.getCompany().getId())) {
             throw new IllegalArgumentException("権限がありません");
         }
         
-        // 休憩記録を取得（BreakRecordService に集約）
         List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendanceId);
         
         Map<String, Object> result = new HashMap<>();
@@ -1172,7 +1034,6 @@ public class AdminController {
         result.put("checkOut", attendance.getCheckOut() != null ? 
             attendance.getCheckOut().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : null);
         
-        // 休憩情報をリスト形式で返す
         List<Map<String, Object>> breaks = new ArrayList<>();
         for (BreakRecord br : breakRecords) {
             Map<String, Object> breakInfo = new HashMap<>();
@@ -1186,7 +1047,6 @@ public class AdminController {
         }
         result.put("breaks", breaks);
         
-        // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
         if (attendance.getCheckIn() != null && attendance.getCheckOut() != null) {
             long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
             workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
@@ -1197,18 +1057,13 @@ public class AdminController {
         return result;
     }
 
-    /**
-     * ユーザーの月次サマリーを計算
-     */
     private Map<String, Object> calculateMonthlySummary(Long userId, int year, int month) {
         Map<String, Object> summary = new HashMap<>();
         
-        // 月の開始日と終了日を計算
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDateTime startDate = yearMonth.atDay(1).atStartOfDay();
         LocalDateTime endDate = yearMonth.atEndOfMonth().atTime(23, 59, 59);
 
-        // 該当月の勤怠データを取得
         List<Attendance> attendances = attendanceService.getAttendanceByDateRange(
                 userId, startDate, endDate);
 
@@ -1217,7 +1072,6 @@ public class AdminController {
         long totalBreakMinutes = 0;
         int workDays = 0;
 
-        // 各勤怠レコードを処理
         for (Attendance attendance : attendances) {
             if (attendance.getCheckIn() == null) {
                 continue;
@@ -1225,7 +1079,6 @@ public class AdminController {
 
             workDays++;
 
-            // 勤務時間を計算
             long workMinutes = 0;
             long overtimeMinutes = 0;
             long breakMinutes = 0;
@@ -1235,7 +1088,6 @@ public class AdminController {
                 breakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
                 workMinutes -= breakMinutes;
 
-                // 残業時間を計算（8時間 = 480分を超えた分）
                 if (workMinutes > 480) {
                     overtimeMinutes = workMinutes - 480;
                 }
@@ -1254,24 +1106,18 @@ public class AdminController {
         return summary;
     }
 
-
-    /**
-     * 月別評価一覧画面（事実ベース評価のみ）
-     */
     @GetMapping("/evaluations/monthly")
     public String monthlyEvaluations(@RequestParam(required = false) String yearMonth,
                                      @RequestParam(required = false) String search,
                                      Authentication authentication, Model model) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー一覧閲覧権限が必要
         if (!permissionService.hasPermission(admin, "VIEW_USER_LIST")) {
             return "redirect:/employee/dashboard";
         }
         
         Long companyId = admin.getCompany().getId();
         
-        // 選択された年月を取得（デフォルトは今月）
         YearMonth selectedYearMonth;
         if (yearMonth != null && !yearMonth.trim().isEmpty()) {
             try {
@@ -1285,16 +1131,13 @@ public class AdminController {
         
         LocalDate monthStart = selectedYearMonth.atDay(1);
         
-        // 事実ベース評価を取得（企業内の全従業員）
         List<com.example.kintai.entity.FactBasedEvaluation> evaluations = 
                 factBasedEvaluationRepository.findByCompanyIdOrderByYearMonthDesc(companyId);
         
-        // 選択された月の評価のみをフィルタリング
         List<com.example.kintai.entity.FactBasedEvaluation> monthEvaluations = evaluations.stream()
                 .filter(eval -> eval.getYearMonth().equals(monthStart))
                 .toList();
         
-        // 検索フィルタリング
         if (search != null && !search.trim().isEmpty()) {
             String searchLower = search.trim().toLowerCase();
             monthEvaluations = monthEvaluations.stream()
@@ -1303,7 +1146,6 @@ public class AdminController {
                     .collect(java.util.stream.Collectors.toList());
         }
         
-        // 選択可能な年月のリストを生成（過去12ヶ月）
         List<YearMonth> availableMonths = new ArrayList<>();
         YearMonth currentMonth = YearMonth.now();
         for (int i = 0; i < 12; i++) {
@@ -1320,9 +1162,6 @@ public class AdminController {
         return "monthly_evaluation_list";
     }
 
-    /**
-     * ユーザーの勤務設定を更新
-     */
     @PostMapping("/users/{userId}/work-settings")
     public String updateWorkSettings(@PathVariable Long userId,
                                      @RequestParam String workType,
@@ -1334,14 +1173,13 @@ public class AdminController {
                                      RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
         }
         
         try {
-            // ユーザーを取得
+            
             Optional<User> optionalUser = userRepository.findById(userId);
             if (optionalUser.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", "ユーザーが見つかりません");
@@ -1350,13 +1188,11 @@ public class AdminController {
             
             User user = optionalUser.get();
             
-            // 同じ企業に属しているか確認
             if (!user.getCompany().getId().equals(admin.getCompany().getId())) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/admin/users";
             }
             
-            // 勤務形態を設定
             if (!"FULLTIME".equals(workType) && !"FLEX".equals(workType)) {
                 redirectAttributes.addFlashAttribute("errorMessage", "無効な勤務形態が指定されました");
                 return "redirect:/admin/users";
@@ -1364,7 +1200,6 @@ public class AdminController {
             
             user.setWorkType(workType);
             
-            // フルタイムの場合のみ始業時間を設定
             if ("FULLTIME".equals(workType)) {
                 if (startTime != null && !startTime.trim().isEmpty()) {
                     try {
@@ -1375,17 +1210,16 @@ public class AdminController {
                         return "users".equals(redirectTo) ? "redirect:/admin/users" : "redirect:/admin/settings";
                     }
                 } else {
-                    // デフォルト値として9時を設定
+                    
                     user.setStartTime(LocalTime.of(9, 0));
                 }
-                // フルタイムの場合はコアタイムをnullに設定
+                
                 user.setCoreTimeStart(null);
                 user.setCoreTimeEnd(null);
             } else if ("FLEX".equals(workType)) {
-                // フレックスの場合は始業時間をnullに設定
+                
                 user.setStartTime(null);
                 
-                // コアタイムを設定
                 if (coreTimeStart != null && !coreTimeStart.trim().isEmpty()) {
                     try {
                         LocalTime coreTimeStartParsed = LocalTime.parse(coreTimeStart.trim());
@@ -1424,9 +1258,6 @@ public class AdminController {
         return "redirect:/admin/settings";
     }
 
-    /**
-     * ユーザーのSlackIDを更新
-     */
     @PostMapping("/users/{userId}/slack-id")
     public String updateSlackUserId(@PathVariable Long userId,
                                      @RequestParam(required = false) String slackUserId,
@@ -1434,14 +1265,13 @@ public class AdminController {
                                      RedirectAttributes redirectAttributes) {
         User admin = getUserFromAuth(authentication);
         
-        // 権限チェック：ユーザー管理権限が必要
         if (!permissionService.hasPermission(admin, "MANAGE_USER")) {
             redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
             return "redirect:/employee/dashboard";
         }
         
         try {
-            // ユーザーを取得
+            
             Optional<User> optionalUser = userRepository.findById(userId);
             if (optionalUser.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", "ユーザーが見つかりません");
@@ -1450,13 +1280,11 @@ public class AdminController {
             
             User user = optionalUser.get();
             
-            // 同じ企業に属しているか確認
             if (!user.getCompany().getId().equals(admin.getCompany().getId())) {
                 redirectAttributes.addFlashAttribute("errorMessage", "権限がありません");
                 return "redirect:/admin/users";
             }
             
-            // SlackIDを設定（空文字の場合はnullに設定）
             if (slackUserId != null && !slackUserId.trim().isEmpty()) {
                 user.setSlackUserId(slackUserId.trim());
             } else {
@@ -1473,9 +1301,6 @@ public class AdminController {
         return "redirect:/admin/users";
     }
 
-    /**
-     * 今日の全社員の勤務状況を取得
-     */
     private List<EmployeeTodayStatusDTO> getTodayEmployeeStatuses(List<User> companyUsers) {
         List<EmployeeTodayStatusDTO> statusList = new ArrayList<>();
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
@@ -1483,12 +1308,11 @@ public class AdminController {
         LocalTime currentTime = LocalTime.now();
 
         for (User employee : companyUsers) {
-            // 管理者は除外
+            
             if ("ADMIN".equals(employee.getRole())) {
                 continue;
             }
 
-            // 今日の勤怠記録を取得
             List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
                     employee.getId(), startOfToday, endOfToday);
 
@@ -1505,16 +1329,14 @@ public class AdminController {
                 checkOutTime = attendance.getCheckOut();
 
                 if (!hasCheckedOut) {
-                    // 休憩中かチェック（BreakRecordService に集約）
+                    
                     List<BreakRecord> activeBreaks = breakRecordService.getActiveBreaksByAttendanceId(attendance.getId());
                     isOnBreak = !activeBreaks.isEmpty();
 
-                    // 中抜け中かチェック（LeaveRecordService に集約）
                     isOnLeave = leaveRecordService.hasActiveLeave(attendance.getId());
                 }
             }
 
-            // 始業時間を取得（フルタイムの場合はstartTime、フレックスの場合はcoreTimeStart）
             LocalTime startTime = null;
             if ("FULLTIME".equals(employee.getWorkType()) || employee.getWorkType() == null) {
                 startTime = employee.getStartTime() != null ? employee.getStartTime() : LocalTime.of(9, 0);
@@ -1522,18 +1344,17 @@ public class AdminController {
                 startTime = employee.getCoreTimeStart() != null ? employee.getCoreTimeStart() : LocalTime.of(10, 0);
             }
 
-            // 状態を判定
             String status;
             if (hasCheckedOut) {
-                status = "COMPLETED"; // 勤務済み
+                status = "COMPLETED"; 
             } else if (hasCheckedIn) {
-                status = "WORKING"; // 勤務中
+                status = "WORKING"; 
             } else {
-                // 未出勤の場合、遅刻判定
+                
                 if (startTime != null && currentTime.isAfter(startTime)) {
-                    status = "LATE"; // 遅刻中
+                    status = "LATE"; 
                 } else {
-                    status = "NOT_STARTED"; // 未勤務
+                    status = "NOT_STARTED"; 
                 }
             }
 
@@ -1554,9 +1375,6 @@ public class AdminController {
         return statusList;
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;

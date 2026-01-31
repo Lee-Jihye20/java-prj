@@ -36,9 +36,6 @@ public class FactBasedEvaluationService {
     @Autowired
     private LeaveRecordService leaveRecordService;
 
-    /**
-     * 月別の事実ベース評価を計算・保存
-     */
     @Transactional
     public FactBasedEvaluation calculateAndSaveMonthlyEvaluation(Long employeeId, YearMonth yearMonth) {
         User employee = userRepository.findById(employeeId).orElse(null);
@@ -51,29 +48,24 @@ public class FactBasedEvaluationService {
         LocalDateTime startDateTime = monthStart.atStartOfDay();
         LocalDateTime endDateTime = monthEnd.atTime(23, 59, 59);
 
-        // その月の勤怠記録を取得
         List<Attendance> attendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
                 employeeId, startDateTime, endDateTime);
 
-        // その月の修正依頼を取得
         List<FixRequest> fixRequests = fixRequestRepository.findByUser_IdOrderByCreatedAtDesc(employeeId);
         List<FixRequest> monthFixRequests = fixRequests.stream()
                 .filter(fr -> fr.getCreatedAt().isAfter(startDateTime.minusSeconds(1)) && 
                              fr.getCreatedAt().isBefore(endDateTime.plusSeconds(1)))
                 .toList();
 
-        // 各指標を計算
         int lateCount = calculateLateCount(attendances, employee);
         BigDecimal applicationComplianceRate = calculateApplicationComplianceRate(monthFixRequests);
         int fixRequestCount = monthFixRequests.size();
         int consecutiveWorkDays = calculateConsecutiveWorkDays(attendances, monthStart, monthEnd);
         BigDecimal overtimeAccuracy = calculateOvertimeAccuracy(attendances, employee);
 
-        // 総合スコアを計算（各指標を100点満点で正規化）
         BigDecimal totalScore = calculateTotalScore(
                 lateCount, applicationComplianceRate, fixRequestCount, consecutiveWorkDays, overtimeAccuracy);
 
-        // 既存の評価を取得または新規作成
         Optional<FactBasedEvaluation> existing = factBasedEvaluationRepository
                 .findByEmployeeIdAndYearMonth(employeeId, monthStart);
         
@@ -86,7 +78,6 @@ public class FactBasedEvaluationService {
             evaluation.setYearMonth(monthStart);
         }
 
-        // 値を設定
         evaluation.setLateCount(lateCount);
         evaluation.setApplicationComplianceRate(applicationComplianceRate);
         evaluation.setFixRequestCount(fixRequestCount);
@@ -97,12 +88,9 @@ public class FactBasedEvaluationService {
         return factBasedEvaluationRepository.save(evaluation);
     }
 
-    /**
-     * 遅刻回数を計算
-     */
     private int calculateLateCount(List<Attendance> attendances, User employee) {
         if (employee.getStartTime() == null) {
-            return 0; // 始業時間が設定されていない場合は遅刻なし
+            return 0; 
         }
 
         LocalTime startTime = employee.getStartTime();
@@ -111,7 +99,7 @@ public class FactBasedEvaluationService {
         for (Attendance attendance : attendances) {
             if (attendance.getCheckIn() != null) {
                 LocalTime checkInTime = attendance.getCheckIn().toLocalTime();
-                // 始業時間より遅い場合は遅刻
+                
                 if (checkInTime.isAfter(startTime)) {
                     lateCount++;
                 }
@@ -121,12 +109,9 @@ public class FactBasedEvaluationService {
         return lateCount;
     }
 
-    /**
-     * 申請遵守率を計算（修正依頼の承認率）
-     */
     private BigDecimal calculateApplicationComplianceRate(List<FixRequest> fixRequests) {
         if (fixRequests.isEmpty()) {
-            return BigDecimal.valueOf(100.0); // 申請がない場合は100%
+            return BigDecimal.valueOf(100.0); 
         }
 
         long approvedCount = fixRequests.stream()
@@ -137,15 +122,11 @@ public class FactBasedEvaluationService {
         return BigDecimal.valueOf(rate).setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 連続勤務日数を計算
-     */
     private int calculateConsecutiveWorkDays(List<Attendance> attendances, LocalDate monthStart, LocalDate monthEnd) {
         if (attendances.isEmpty()) {
             return 0;
         }
 
-        // 月内の出勤日を取得
         List<LocalDate> workDates = attendances.stream()
                 .filter(a -> a.getCheckIn() != null)
                 .map(a -> a.getCheckIn().toLocalDate())
@@ -157,7 +138,6 @@ public class FactBasedEvaluationService {
             return 0;
         }
 
-        // 連続勤務日数を計算（月末から逆算）
         int maxConsecutive = 1;
         int currentConsecutive = 1;
         LocalDate prevDate = workDates.get(workDates.size() - 1);
@@ -176,16 +156,11 @@ public class FactBasedEvaluationService {
         return maxConsecutive;
     }
 
-    /**
-     * 残業申請の正確性を計算（残業時間の申請と実際の比較）
-     * 休憩時間を正確に計算
-     */
     private BigDecimal calculateOvertimeAccuracy(List<Attendance> attendances, User employee) {
         if (attendances.isEmpty()) {
             return BigDecimal.valueOf(100.0);
         }
 
-        // 1日8時間を超える勤務時間を残業とみなす
         int validOvertimeDays = 0;
         int totalDays = 0;
 
@@ -194,19 +169,16 @@ public class FactBasedEvaluationService {
                 totalDays++;
                 long minutes = java.time.Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
                 
-                // 休憩時間を正確に計算
                 long breakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
                 minutes -= breakMinutes;
                 
-                // 中抜け時間（控除）を計算
                 long leaveMinutes = leaveRecordService.getTotalDeductionLeaveMinutes(attendance.getId());
                 minutes -= leaveMinutes;
                 
                 double hours = minutes / 60.0;
 
                 if (hours > 8.0) {
-                    // 残業がある場合、適切に記録されているか確認
-                    // ここでは簡易的に、check_outが記録されていれば正確とみなす
+                    
                     validOvertimeDays++;
                 }
             }
@@ -220,29 +192,20 @@ public class FactBasedEvaluationService {
         return BigDecimal.valueOf(accuracy).setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 総合スコアを計算
-     */
     private BigDecimal calculateTotalScore(int lateCount, BigDecimal applicationComplianceRate,
                                           int fixRequestCount, int consecutiveWorkDays,
                                           BigDecimal overtimeAccuracy) {
-        // 各指標を100点満点で正規化
-        // 遅刻回数：0回=100点、1回=90点、2回=80点...（10点減点）
+        
         BigDecimal lateScore = BigDecimal.valueOf(Math.max(0, 100 - lateCount * 10));
 
-        // 申請遵守率：そのまま使用
         BigDecimal complianceScore = applicationComplianceRate;
 
-        // 打刻修正回数：0回=100点、1回=95点、2回=90点...（5点減点）
         BigDecimal fixScore = BigDecimal.valueOf(Math.max(0, 100 - fixRequestCount * 5));
 
-        // 連続勤務日数：日数に応じて加点（最大20点）
         BigDecimal consecutiveScore = BigDecimal.valueOf(Math.min(20, consecutiveWorkDays * 2));
 
-        // 残業申請の正確性：そのまま使用
         BigDecimal overtimeScore = overtimeAccuracy;
 
-        // 重み付け平均（簡易版：等重み）
         BigDecimal total = lateScore
                 .add(complianceScore)
                 .add(fixScore)
@@ -252,14 +215,11 @@ public class FactBasedEvaluationService {
         return total.divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * 企業内の全従業員の月別評価を計算・保存
-     */
     @Transactional
     public void calculateAndSaveAllEmployeesMonthlyEvaluation(Long companyId, YearMonth yearMonth) {
         List<User> employees = userRepository.findAllByCompanyId(companyId);
         for (User employee : employees) {
-            // 管理者は除外
+            
             if ("ADMIN".equals(employee.getRole())) {
                 continue;
             }

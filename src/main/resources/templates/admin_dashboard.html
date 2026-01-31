@@ -41,7 +41,7 @@
                 </div>
             </section>
 
-            <!-- 今日の勤務状況 -->
+            
             <section class="card" th:if="${todayStatusList != null and !todayStatusList.isEmpty()}">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h2 style="margin: 0;">📊 今日の勤務状況</h2>
@@ -62,7 +62,7 @@
                     <span th:text="${#temporals.format(#temporals.createToday(), 'yyyy年MM月dd日')}"></span> の全社員の勤務状況
                 </p>
                 
-                <!-- 簡易表示 -->
+                
                 <div id="simpleView" style="display: none;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div th:each="status : ${workingOrCompletedList}" 
@@ -86,9 +86,9 @@
                     </div>
                 </div>
                 
-                <!-- 詳細表示 -->
+                
                 <div id="detailView">
-                    <!-- 勤務中・勤務済み -->
+                    
                     <div style="margin-bottom: 30px;">
                         <h3 style="color: #27ae60; margin-bottom: 10px; font-size: 1.1em;">✅ 勤務中・勤務済み</h3>
                         <div class="table-wrapper">
@@ -125,7 +125,7 @@
                         </div>
                     </div>
 
-                    <!-- 未勤務・遅刻中 -->
+                    
                     <div>
                         <h3 style="color: #e74c3c; margin-bottom: 10px; font-size: 1.1em;">⚠️ 未勤務・遅刻中</h3>
                         <div class="table-wrapper">

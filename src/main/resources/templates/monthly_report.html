@@ -22,7 +22,7 @@
         </header>
 
         <div class="content">
-            <!-- 月選択 -->
+            
             <section class="card">
                 <h2>期間選択</h2>
                 <form th:action="${isAdmin ? '/report/admin/monthly' : '/report/monthly'}" method="get">
@@ -40,7 +40,7 @@
                 </form>
             </section>
 
-            <!-- サマリー -->
+            
             <section class="card">
                 <h2 th:text="${report.year + '年' + report.month + '月 勤務サマリー'}">勤務サマリー</h2>
                 <div class="stats-grid">
@@ -63,13 +63,13 @@
                 </div>
             </section>
 
-            <!-- グラフ -->
+            
             <section class="card" th:if="${!report.dailyReports.isEmpty()}">
                 <h2>勤務時間推移</h2>
                 <canvas id="workHoursChart" style="max-height: 400px;"></canvas>
             </section>
 
-            <!-- 日別詳細 -->
+            
             <section class="card" th:if="${!report.dailyReports.isEmpty()}">
                 <h2>日別詳細</h2>
                 <div class="table-wrapper">

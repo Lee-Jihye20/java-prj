@@ -16,26 +16,26 @@ public class AnomalyApproval {
     private Attendance attendance;
 
     @Column(name = "anomaly_type", nullable = false, length = 50)
-    private String anomalyType; // OVERTIME, LATE, MISSING_CHECKOUT
+    private String anomalyType; 
 
     @Column(name = "reason", columnDefinition = "TEXT")
-    private String reason; // 理由
+    private String reason; 
 
     @Column(name = "approved", nullable = false)
-    private Boolean approved = false; // 承認フラグ
+    private Boolean approved = false; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by")
-    private User approvedBy; // 承認者
+    private User approvedBy; 
 
     @Column(name = "approved_at")
-    private LocalDateTime approvedAt; // 承認日時
+    private LocalDateTime approvedAt; 
 
     @Column(name = "adjustment_hours")
-    private Double adjustmentHours; // 補正時間（時間単位、負の値も可）
+    private Double adjustmentHours; 
 
     @Column(name = "adjustment_reason", columnDefinition = "TEXT")
-    private String adjustmentReason; // 補正理由
+    private String adjustmentReason; 
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,11 +54,9 @@ public class AnomalyApproval {
         updatedAt = LocalDateTime.now();
     }
 
-    // Constructors
     public AnomalyApproval() {
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -169,9 +167,6 @@ public class AnomalyApproval {
         this.updatedAt = updatedAt;
     }
 
-    /**
-     * 異常タイプを日本語で取得
-     */
     public String getAnomalyTypeInJapanese() {
         if (anomalyType == null) {
             return "不明";

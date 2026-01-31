@@ -27,7 +27,7 @@ public class SlackNotificationService {
     public void sendAdminNotification(String message, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            // Slack通知が有効で、Webhook URLが設定されている場合のみ送信
+            
             if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
                     && s.getAdminSlackWebhookUrl() != null && !s.getAdminSlackWebhookUrl().isEmpty()) {
                 sendSlackMessage(s.getAdminSlackWebhookUrl(), message);
@@ -38,7 +38,7 @@ public class SlackNotificationService {
     public void sendAttendanceNotification(String message, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            // Slack通知が有効で、ログチャンネルのWebhook URLが設定されている場合のみ送信
+            
             if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
                     && s.getLogSlackWebhookUrl() != null && !s.getLogSlackWebhookUrl().isEmpty()) {
                 sendSlackMessage(s.getLogSlackWebhookUrl(), message);
@@ -64,13 +64,10 @@ public class SlackNotificationService {
         });
     }
 
-    /**
-     * 管理者チャンネルにembed形式でメッセージを送信（異常検知・修正依頼通知用）
-     */
     public void sendAdminNotificationWithAttachment(Map<String, Object> attachmentPayload, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            // Slack通知が有効で、異常・修正依頼通知用のWebhook URLが設定されている場合のみ送信
+            
             if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
                     && s.getAlertSlackWebhookUrl() != null && !s.getAlertSlackWebhookUrl().isEmpty()) {
                 sendSlackAttachmentMessage(s.getAlertSlackWebhookUrl(), attachmentPayload);
@@ -103,7 +100,7 @@ public class SlackNotificationService {
             webClientBuilder.build().post()
                     .uri(webhookUrl)
                     .header("Content-Type", "application/json")
-                    .bodyValue(payload) // ← textではなく full JSON をそのまま送信
+                    .bodyValue(payload) 
                     .retrieve()
                     .bodyToMono(String.class)
                     .subscribe(
@@ -121,7 +118,7 @@ public class SlackNotificationService {
             webClientBuilder.build().post()
                     .uri(webhookUrl)
                     .header("Content-Type", "application/json")
-                    .bodyValue(payload) // MapをJSONとして送信
+                    .bodyValue(payload) 
                     .retrieve()
                     .bodyToMono(String.class)
                     .subscribe(

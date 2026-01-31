@@ -23,14 +23,14 @@
 
         <div class="content">
             <section class="card">
-                <!-- 月ナビゲーション -->
+                
                 <div class="calendar-nav">
                     <a th:href="@{/admin/users/{userId}/calendar(userId=${targetUserId}, year=${prevYear}, month=${prevMonth})}" class="btn-secondary">← 前月</a>
                     <h2 th:text="${year + '年 ' + month + '月'}">年月</h2>
                     <a th:href="@{/admin/users/{userId}/calendar(userId=${targetUserId}, year=${nextYear}, month=${nextMonth})}" class="btn-secondary">次月 →</a>
                 </div>
 
-                <!-- 凡例 -->
+                
                 <div class="calendar-legend">
                     <span class="legend-item"><span class="legend-color normal"></span> 通常勤務</span>
                     <span class="legend-item"><span class="legend-color overtime"></span> 残業あり</span>
@@ -38,7 +38,7 @@
                     <span class="legend-item"><span class="legend-color absent"></span> 欠勤</span>
                 </div>
 
-                <!-- カレンダー -->
+                
                 <table class="calendar-table">
                     <thead>
                         <tr>
@@ -82,7 +82,7 @@
         </div>
     </div>
 
-    <!-- モーダルポップアップ -->
+    
     <div id="attendanceModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">

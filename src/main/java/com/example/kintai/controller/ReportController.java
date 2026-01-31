@@ -24,9 +24,6 @@ public class ReportController {
     @Autowired
     private PermissionService permissionService;
 
-    /**
-     * 月次レポート表示
-     */
     @GetMapping("/monthly")
     public String monthlyReport(@RequestParam(required = false) Integer year,
                                  @RequestParam(required = false) Integer month,
@@ -34,7 +31,6 @@ public class ReportController {
                                  Model model) {
         User user = getUserFromAuth(authentication);
 
-        // デフォルトは当月
         if (year == null || month == null) {
             LocalDate now = LocalDate.now();
             year = now.getYear();
@@ -43,7 +39,6 @@ public class ReportController {
 
         MonthlyReportDTO report = monthlyReportService.generateMonthlyReport(user, year, month);
 
-        // 権限チェック：月次レポート閲覧権限が必要
         boolean canViewMonthlyReport = permissionService.hasPermission(user, "VIEW_MONTHLY_REPORT");
         if (!canViewMonthlyReport) {
             return "redirect:/employee/dashboard";
@@ -58,9 +53,6 @@ public class ReportController {
         return "monthly_report";
     }
 
-    /**
-     * 管理者用：全従業員の月次レポート
-     */
     @GetMapping("/admin/monthly")
     public String adminMonthlyReport(@RequestParam(required = false) Integer year,
                                       @RequestParam(required = false) Integer month,
@@ -68,12 +60,10 @@ public class ReportController {
                                       Model model) {
         User admin = getUserFromAuth(authentication);
 
-        // 権限チェック：月次レポート閲覧権限が必要
         if (!permissionService.hasPermission(admin, "VIEW_MONTHLY_REPORT")) {
             return "redirect:/employee/dashboard";
         }
 
-        // デフォルトは当月
         if (year == null || month == null) {
             LocalDate now = LocalDate.now();
             year = now.getYear();
@@ -86,14 +76,11 @@ public class ReportController {
         model.addAttribute("username", admin.getUsername());
         model.addAttribute("currentYear", year);
         model.addAttribute("currentMonth", month);
-        model.addAttribute("isAdmin", true); // 管理者用なので常にtrue
+        model.addAttribute("isAdmin", true); 
 
         return "monthly_report";
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         return (User) authentication.getPrincipal();
     }

@@ -92,7 +92,7 @@
         </div>
 
         <div class="dashboard-content">
-            <!-- 事実ベース評価 -->
+            
             <section class="card">
                 <h2>📊 事実ベース評価（<span th:text="${#temporals.format(currentMonth.atDay(1), 'yyyy年MM月')}"></span>）</h2>
                 <div th:if="${factBasedEvaluation != null}">
@@ -128,7 +128,7 @@
                 </div>
             </section>
 
-            <!-- 時系列可視化 -->
+            
             <section class="card">
                 <h2>📈 月別スコア推移</h2>
                 <div th:if="${trendAnalysis != null}">
@@ -139,7 +139,7 @@
                 </div>
             </section>
 
-            <!-- 評価の説明 -->
+            
             <section class="card">
                 <h2>📋 評価について</h2>
                 <p style="color: #666; line-height: 1.6;">

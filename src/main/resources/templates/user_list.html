@@ -37,7 +37,7 @@
                         <a th:href="@{/admin/users/create}" class="btn-primary">新規社員アカウント作成</a>
                     </div>
                 </div>
-                <!-- 検索フォーム -->
+                
                 <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
                     <form method="get" th:action="@{/admin/users}" style="display: flex; gap: 10px; align-items: center;">
                         <label for="searchInput" style="font-weight: 600; white-space: nowrap;">名前で検索:</label>
@@ -77,7 +77,7 @@
                                 <td th:text="${user.username}"></td>
                                 <td>
                                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                                        <!-- 現在のロール表示 -->
+                                        
                                         <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">
                                             <span th:if="${user.role == 'ADMIN'}" style="color: #ff6b6b; font-weight: bold;">管理者</span>
                                             <span th:if="${user.role == 'EMPLOYEE'}" style="color: #4ecdc4;">従業員</span>
@@ -86,7 +86,7 @@
                                                       th:text="${role.name + (iterStat.last ? '' : ', ')}"></span>)
                                             </span>
                                         </div>
-                                        <!-- ロール変更ボタン -->
+                                        
                                         <button type="button" 
                                                 class="btn-secondary assign-role-btn" 
                                                 style="padding: 5px 10px; font-size: 0.85em;"
@@ -131,7 +131,7 @@
                                                     th:data-user-id="${user.id}">月別エクスポート</button>
                                             <a th:if="${user.role == 'ADMIN'}" th:href="@{/admin/users/{uid}/actions(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">📝 ログ</a>
                                         </div>
-                                        <!-- 当月の勤務統計 -->
+                                        
                                         <div th:if="${user.role != 'ADMIN' and userMonthlyStats != null and userMonthlyStats.containsKey(user.id)}" 
                                              style="padding: 10px; background-color: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; font-size: 0.85em;">
                                             <div style="font-weight: 600; margin-bottom: 5px; color: #2c3e50;">
@@ -393,13 +393,13 @@
         }
     </script>
 
-    <!-- ロール変更モーダル -->
+    
     <div id="roleAssignModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 500px; max-width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0;">ロール変更</h2>
             <p>ユーザー: <strong id="roleAssignUsername"></strong></p>
             
-            <!-- ロール選択フォーム -->
+            
             <form id="roleAssignForm" method="post" style="display: flex; flex-direction: column; gap: 20px;">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <input type="hidden" id="roleAssignUserId" name="userId">
@@ -413,7 +413,7 @@
                     <small style="color: #666; font-size: 0.85em;">後方互換性のための基本ロールです</small>
                 </div>
                 
-                <!-- カスタムロール選択 -->
+                
                 <div>
                     <label style="display: block; margin-bottom: 10px; font-weight: 600;">カスタムロールを選択:</label>
                     <div style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
@@ -451,7 +451,7 @@
         </div>
     </div>
 
-    <!-- 勤務設定モーダル -->
+    
     <div id="workSettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0;">勤務設定</h2>
@@ -487,7 +487,7 @@
         </div>
     </div>
 
-    <!-- 日別エクスポートモーダル -->
+    
     <div id="exportDailyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 320px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0;">日別データ エクスポート</h2>
@@ -505,7 +505,7 @@
         </div>
     </div>
 
-    <!-- 月別エクスポートモーダル -->
+    
     <div id="exportMonthlyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 320px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0;">月別データ エクスポート</h2>
@@ -530,7 +530,7 @@
         </div>
     </div>
 
-    <!-- SlackID設定モーダル -->
+    
     <div id="slackIdSettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0;">SlackID設定</h2>

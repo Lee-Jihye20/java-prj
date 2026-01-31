@@ -44,7 +44,6 @@ public class Role {
         this.company = company;
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }

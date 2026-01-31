@@ -30,7 +30,7 @@ public class AttendanceService {
     private AttendanceRepository attendanceRepository;
 
     @Autowired
-    private UserRepository userRepository; // To get user details including company ID
+    private UserRepository userRepository; 
 
     @Autowired
     private SlackNotificationService slackNotificationService;
@@ -50,9 +50,6 @@ public class AttendanceService {
     @Autowired
     private BreakRecordService breakRecordService;
 
-    /**
-     * 出勤打刻
-     */
     @Transactional
     public Attendance checkIn(Long userId) {
         Optional<User> userOptional = userRepository.findById(userId);
@@ -61,7 +58,6 @@ public class AttendanceService {
         }
         User user = userOptional.get();
 
-        // 今日の日付範囲で既存の勤怠記録をチェック（1日1回制限）
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
         List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
@@ -72,12 +68,11 @@ public class AttendanceService {
         }
 
         Attendance attendance = new Attendance();
-        attendance.setUser(user); // Set user object directly
+        attendance.setUser(user); 
         attendance.setCheckIn(LocalDateTime.now());
-        attendance.setStatus("APPROVED"); // 通常の打刻は自動承認
+        attendance.setStatus("APPROVED"); 
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
-        // Slack通知
         String message = String.format("出勤通知: %s さんが %s に出勤しました。",
                 user.getUsername(),
                 savedAttendance.getCheckIn().format(java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")));
@@ -86,9 +81,6 @@ public class AttendanceService {
         return savedAttendance;
     }
 
-    /**
-     * 退勤打刻
-     */
     @Transactional
     public Attendance checkOut(Long userId) {
         Optional<User> userOptional = userRepository.findById(userId);
@@ -97,7 +89,6 @@ public class AttendanceService {
         }
         User user = userOptional.get();
 
-        // 今日の出勤記録を取得
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
         List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
@@ -115,13 +106,11 @@ public class AttendanceService {
         attendance.setCheckOut(LocalDateTime.now());
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
-        // Slack通知
         String message = String.format("退勤通知: %s さんが %s に退勤しました。",
                 user.getUsername(),
                 savedAttendance.getCheckOut().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")));
         slackNotificationService.sendAttendanceNotification(message, user.getCompany().getId());
 
-        // 残業検知: 残業超過の計算・判定は OvertimeExcessService に集約
         if (overtimeExcessService.isOvertimeExcess(savedAttendance)) {
             long workMinutes = Duration.between(savedAttendance.getCheckIn(), savedAttendance.getCheckOut()).toMinutes();
             long totalBreakMinutes = breakRecordService.getTotalBreakMinutes(savedAttendance);
@@ -130,9 +119,8 @@ public class AttendanceService {
             double workHours = workMinutes / 60.0;
             double overtimeHours = (workMinutes - threshold) / 60.0;
             
-            // Slack通知（管理者チャンネル）- embed形式
             Map<String, Object> attachment = new HashMap<>();
-            attachment.put("color", "#e74c3c"); // 赤色（警告）
+            attachment.put("color", "#e74c3c"); 
             attachment.put("pretext", "⚠️ 残業検知");
             
             List<Map<String, Object>> fields = new ArrayList<>();
@@ -190,9 +178,6 @@ public class AttendanceService {
         return savedAttendance;
     }
 
-    /**
-     * 休憩開始打刻
-     */
     @Transactional
     public Attendance startBreak(Long userId) {
         Optional<User> userOptional = userRepository.findById(userId);
@@ -201,15 +186,11 @@ public class AttendanceService {
         }
         User user = userOptional.get();
 
-        // 企業設定を取得
         Optional<CompanySettings> settingsOptional = companySettingsRepository.findByCompanyId(user.getCompany().getId());
         CompanySettings settings = settingsOptional.orElse(new CompanySettings());
         Integer breakCountLimit = settings.getBreakCountLimit() != null ? settings.getBreakCountLimit() : 1;
         String breakInputMode = settings.getBreakInputMode() != null ? settings.getBreakInputMode() : "FREE";
 
-        // 中抜け（通常の休憩）は常に使用可能（昼休憩ボタンは削除済み）
-
-        // 今日の出勤記録を取得
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
         List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
@@ -224,18 +205,15 @@ public class AttendanceService {
             throw new IllegalStateException("既に退勤済みです");
         }
 
-        // 既に休憩中の記録があるかチェック
         List<BreakRecord> activeBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(attendance.getId());
         if (!activeBreaks.isEmpty()) {
             throw new IllegalStateException("既に休憩中です");
         }
 
-        // 中抜け中でないことを確認（休憩と中抜けは同時に進行できない）
         if (leaveRecordService.hasActiveLeave(attendance.getId())) {
             throw new IllegalStateException("中抜け中です。中抜けを終了してから休憩を開始してください");
         }
 
-        // 休憩回数制限をチェック
         List<BreakRecord> completedBreaks = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
         completedBreaks = completedBreaks.stream()
                 .filter(br -> br.getBreakEnd() != null)
@@ -245,17 +223,14 @@ public class AttendanceService {
             throw new IllegalStateException("本日の休憩回数制限（" + breakCountLimit + "回）に達しています");
         }
 
-        // 休憩開始時刻を決定（中抜けは常に現在時刻）
         LocalDateTime breakStartTime = LocalDateTime.now();
 
-        // BreakRecordを作成（中抜けは常にFREEタイプ）
         BreakRecord breakRecord = new BreakRecord();
         breakRecord.setAttendance(attendance);
         breakRecord.setBreakStart(breakStartTime);
         breakRecord.setBreakType("FREE");
         breakRecordRepository.save(breakRecord);
 
-        // 後方互換性のため、Attendanceにも設定（既存のコードとの互換性）
         if (attendance.getBreakStart() == null) {
             attendance.setBreakStart(breakStartTime);
         }
@@ -263,9 +238,6 @@ public class AttendanceService {
         return attendanceRepository.save(attendance);
     }
 
-    /**
-     * 休憩終了打刻
-     */
     @Transactional
     public Attendance endBreak(Long userId) {
         Optional<User> userOptional = userRepository.findById(userId);
@@ -274,15 +246,11 @@ public class AttendanceService {
         }
         User user = userOptional.get();
 
-        // 企業設定を取得
         Optional<CompanySettings> settingsOptional = companySettingsRepository.findByCompanyId(user.getCompany().getId());
         CompanySettings settings = settingsOptional.orElse(new CompanySettings());
         String breakInputMode = settings.getBreakInputMode() != null ? settings.getBreakInputMode() : "FREE";
         Boolean autoCalculateBreakTime = settings.getAutoCalculateBreakTime() != null ? settings.getAutoCalculateBreakTime() : true;
 
-        // 中抜け（通常の休憩）は常に使用可能（昼休憩ボタンは削除済み）
-
-        // 今日の出勤記録を取得
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
         List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
@@ -297,26 +265,21 @@ public class AttendanceService {
             throw new IllegalStateException("既に退勤済みです");
         }
 
-        // 休憩中の記録を取得
         List<BreakRecord> activeBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(attendance.getId());
         if (activeBreaks.isEmpty()) {
             throw new IllegalStateException("休憩開始が打刻されていません");
         }
 
-        // 最新の休憩記録を取得
         BreakRecord breakRecord = activeBreaks.get(0);
 
-        // 休憩終了時刻を決定（中抜けは常に現在時刻）
         LocalDateTime breakEndTime = LocalDateTime.now();
 
         breakRecord.setBreakEnd(breakEndTime);
         breakRecordRepository.save(breakRecord);
 
-        // 後方互換性のため、Attendanceにも設定
-        // すべての休憩が終了している場合のみ設定
         List<BreakRecord> allActiveBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(attendance.getId());
         if (allActiveBreaks.isEmpty()) {
-            // 最後の休憩終了時刻を設定（後方互換性のため）
+            
             List<BreakRecord> allBreaks = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
             if (!allBreaks.isEmpty()) {
                 BreakRecord lastBreak = allBreaks.get(allBreaks.size() - 1);
@@ -329,30 +292,18 @@ public class AttendanceService {
         return attendanceRepository.save(attendance);
     }
 
-    /**
-     * ユーザーの勤怠履歴を取得
-     */
     public List<Attendance> getAttendanceHistory(Long userId) {
         return attendanceRepository.findByUser_IdOrderByCheckInDesc(userId);
     }
 
-    /**
-     * 期間指定で勤怠履歴を取得
-     */
     public List<Attendance> getAttendanceByDateRange(Long userId, LocalDateTime startDate, LocalDateTime endDate) {
         return attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(userId, startDate, endDate);
     }
 
-    /**
-     * 現在の勤怠状態を取得
-     */
     public Optional<Attendance> getActiveAttendance(Long userId) {
         return attendanceRepository.findByUser_IdAndCheckOutIsNullOrderByCheckInDesc(userId);
     }
 
-    /**
-     * 今日の勤怠状態を取得（出勤、休憩中、中抜け中の状態を含む）
-     */
     public TodayAttendanceStatus getTodayAttendanceStatus(Long userId) {
         LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
@@ -374,9 +325,6 @@ public class AttendanceService {
         return new TodayAttendanceStatus(hasCheckedIn, hasCheckedOut, isOnBreak, isOnLeave);
     }
 
-    /**
-     * 今日の勤怠状態を表す内部クラス
-     */
     public static class TodayAttendanceStatus {
         private final boolean hasCheckedIn;
         private final boolean hasCheckedOut;
@@ -407,24 +355,14 @@ public class AttendanceService {
         }
     }
 
-    /**
-     * 勤怠IDで取得
-     */
     public Optional<Attendance> getAttendanceById(Long id) {
         return attendanceRepository.findById(id);
     }
 
-    /**
-     * すべての勤怠記録を取得 (企業ごと)
-     */
     public List<Attendance> findAllByCompanyId(Long companyId) {
         return attendanceRepository.findAllByUser_CompanyId(companyId);
     }
 
-    /**
-     * 異常検知: 打刻漏れ(退勤未打刻)を検出 (企業ごと)。
-     * 当日の勤怠は除外（まだ勤務中の可能性があるため）。過去日で退勤未打刻のもののみ検知。
-     */
     public List<Attendance> detectMissingCheckOut(Long companyId) {
         LocalDate today = LocalDate.now();
         return findAllByCompanyId(companyId).stream()

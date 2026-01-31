@@ -28,7 +28,7 @@ public class User implements UserDetails {
     private String password;
 
     @Column(nullable = false, length = 20)
-    private String role; // EMPLOYEE or ADMIN
+    private String role; 
 
     @Column(name = "slack_webhook_url")
     private String slackWebhookUrl;
@@ -49,18 +49,17 @@ public class User implements UserDetails {
     private Set<Role> roles = new HashSet<>();
 
     @Column(name = "work_type", length = 20)
-    private String workType; // FULLTIME or FLEX
+    private String workType; 
 
     @Column(name = "start_time", columnDefinition = "TIME DEFAULT '09:00:00'")
-    private LocalTime startTime; // フルタイムの場合の始業時間
+    private LocalTime startTime; 
 
     @Column(name = "core_time_start")
-    private LocalTime coreTimeStart; // フレックスの場合のコアタイム開始時刻
+    private LocalTime coreTimeStart; 
 
     @Column(name = "core_time_end")
-    private LocalTime coreTimeEnd; // フレックスの場合のコアタイム終了時刻
+    private LocalTime coreTimeEnd; 
 
-    // Constructors
     public User() {
     }
 
@@ -71,7 +70,6 @@ public class User implements UserDetails {
         this.role = role;
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -163,9 +161,6 @@ public class User implements UserDetails {
         this.roles = roles;
     }
 
-    /**
-     * 指定された権限を持っているかチェック
-     */
     public boolean hasPermission(String permissionName) {
         if (roles == null || roles.isEmpty()) {
             return false;
@@ -174,9 +169,6 @@ public class User implements UserDetails {
                 .anyMatch(role -> role != null && role.hasPermission(permissionName));
     }
 
-    /**
-     * 指定されたロールを持っているかチェック
-     */
     public boolean hasRole(String roleName) {
         return roles.stream()
                 .anyMatch(role -> role.getName().equals(roleName));
@@ -214,14 +206,10 @@ public class User implements UserDetails {
         this.coreTimeEnd = coreTimeEnd;
     }
 
-    /**
-     * 保存前にデフォルト値を設定
-     */
     @PrePersist
     @PreUpdate
     protected void setDefaults() {
-        // work_typeがFULLTIME（またはnull）でstart_timeがnullの場合、デフォルトで9時に設定
-        // データベース側でもデフォルト値が設定されているが、アプリケーション側でも設定
+        
         if ((workType == null || "FULLTIME".equals(workType)) && startTime == null) {
             startTime = LocalTime.of(9, 0);
         }

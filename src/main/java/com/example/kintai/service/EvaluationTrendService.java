@@ -17,9 +17,6 @@ public class EvaluationTrendService {
     @Autowired
     private FactBasedEvaluationRepository factBasedEvaluationRepository;
 
-    /**
-     * 従業員の月別評価トレンドを取得（事実ベース評価のみ）
-     */
     @Transactional(readOnly = true)
     public List<EvaluationTrendDTO> getEmployeeTrend(Long employeeId, int months) {
         List<EvaluationTrendDTO> trends = new ArrayList<>();
@@ -31,7 +28,6 @@ public class EvaluationTrendService {
 
             EvaluationTrendDTO trend = new EvaluationTrendDTO(monthStart);
 
-            // 事実ベース評価を取得
             factBasedEvaluationRepository.findByEmployeeIdAndYearMonth(employeeId, monthStart)
                     .ifPresent(eval -> {
                         trend.setTotalScore(eval.getTotalScore());
@@ -48,15 +44,11 @@ public class EvaluationTrendService {
         return trends;
     }
 
-    /**
-     * トレンドの改善・悪化を判定
-     */
     public String analyzeTrend(List<EvaluationTrendDTO> trends) {
         if (trends.size() < 2) {
             return "データ不足";
         }
 
-        // 最新のスコアと過去のスコアを比較
         EvaluationTrendDTO latest = trends.get(0);
         EvaluationTrendDTO previous = trends.get(1);
 

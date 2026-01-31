@@ -42,9 +42,6 @@ public class CalendarController {
     @Autowired
     private PermissionService permissionService;
 
-    /**
-     * カレンダー表示（従業員用：自分の勤怠のみ）
-     */
     @GetMapping
     public String calendar(@RequestParam(required = false) Integer year,
                             @RequestParam(required = false) Integer month,
@@ -52,14 +49,12 @@ public class CalendarController {
                             Model model) {
         User user = getUserFromAuth(authentication);
 
-        // デフォルトは当月
         if (year == null || month == null) {
             LocalDate now = LocalDate.now();
             year = now.getYear();
             month = now.getMonthValue();
         }
 
-        // カレンダーデータを作成
         YearMonth yearMonth = YearMonth.of(year, month);
         List<Attendance> attendances = attendanceService.getAttendanceByDateRange(
                 user.getId(),
@@ -67,7 +62,6 @@ public class CalendarController {
                 yearMonth.atEndOfMonth().atTime(23, 59, 59)
         );
 
-        // 日付ごとの勤怠データをマップに変換
         Map<Integer, CalendarDay> calendarDays = new HashMap<>();
         for (Attendance attendance : attendances) {
             if (attendance.getCheckIn() != null) {
@@ -76,11 +70,9 @@ public class CalendarController {
                 calendarDay.setDay(day);
                 calendarDay.setAttendance(attendance);
 
-                // 休憩記録を取得（BreakRecordService に集約）
                 List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendance.getId());
                 calendarDay.setBreakRecords(breakRecords);
 
-                // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
                 if (attendance.getCheckOut() != null) {
                     long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
                     workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
@@ -88,33 +80,29 @@ public class CalendarController {
 
                     calendarDay.setWorkHours(workMinutes / 60.0);
 
-                    // ステータスを設定（残業かどうか）
-                    if (workMinutes > 480) { // 8時間以上
+                    if (workMinutes > 480) { 
                         calendarDay.setStatus("overtime");
                     } else {
                         calendarDay.setStatus("normal");
                     }
                 } else {
-                    calendarDay.setStatus("incomplete"); // 退勤未打刻
+                    calendarDay.setStatus("incomplete"); 
                 }
 
                 calendarDays.put(day, calendarDay);
             }
         }
 
-        // カレンダーグリッドを作成
         int daysInMonth = yearMonth.lengthOfMonth();
-        int firstDayOfWeek = yearMonth.atDay(1).getDayOfWeek().getValue(); // 1=月曜, 7=日曜
+        int firstDayOfWeek = yearMonth.atDay(1).getDayOfWeek().getValue(); 
 
         List<List<CalendarDay>> weeks = new ArrayList<>();
         List<CalendarDay> week = new ArrayList<>();
 
-        // 最初の週の空白を埋める
         for (int i = 1; i < firstDayOfWeek; i++) {
             week.add(null);
         }
 
-        // 日付を配置
         for (int day = 1; day <= daysInMonth; day++) {
             CalendarDay calendarDay = calendarDays.getOrDefault(day, new CalendarDay());
             if (calendarDay.getDay() == 0) {
@@ -122,14 +110,12 @@ public class CalendarController {
             }
             week.add(calendarDay);
 
-            // 週の終わり（日曜日）
             if ((firstDayOfWeek + day - 1) % 7 == 0) {
                 weeks.add(week);
                 week = new ArrayList<>();
             }
         }
 
-        // 最後の週に空白を追加
         if (!week.isEmpty()) {
             while (week.size() < 7) {
                 week.add(null);
@@ -149,9 +135,6 @@ public class CalendarController {
         return "attendance_calendar";
     }
 
-    /**
-     * 勤怠詳細情報を取得（API）- 従業員用（自分の勤怠のみ）
-     */
     @GetMapping("/api/attendance/{attendanceId}/details")
     @ResponseBody
     public Map<String, Object> getAttendanceDetails(@PathVariable Long attendanceId,
@@ -165,12 +148,10 @@ public class CalendarController {
         
         Attendance attendance = attendanceOptional.get();
         
-        // 権限チェック：自分の勤怠のみ閲覧可能
         if (!attendance.getUserId().equals(user.getId())) {
             throw new IllegalArgumentException("権限がありません");
         }
         
-        // 休憩記録を取得（BreakRecordService に集約）
         List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendanceId);
         
         Map<String, Object> result = new HashMap<>();
@@ -179,7 +160,6 @@ public class CalendarController {
         result.put("checkOut", attendance.getCheckOut() != null ? 
             attendance.getCheckOut().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : null);
         
-        // 休憩情報をリスト形式で返す
         List<Map<String, Object>> breaks = new ArrayList<>();
         for (BreakRecord br : breakRecords) {
             Map<String, Object> breakInfo = new HashMap<>();
@@ -193,7 +173,6 @@ public class CalendarController {
         }
         result.put("breaks", breaks);
         
-        // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
         if (attendance.getCheckIn() != null && attendance.getCheckOut() != null) {
             long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
             workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
@@ -204,21 +183,15 @@ public class CalendarController {
         return result;
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         return (User) authentication.getPrincipal();
     }
 
-    /**
-     * カレンダーの日付情報を保持するクラス
-     */
     public static class CalendarDay {
         private int day;
         private Attendance attendance;
         private double workHours;
-        private String status; // normal, overtime, incomplete, absent
+        private String status; 
         private List<BreakRecord> breakRecords = new ArrayList<>();
 
         public CalendarDay() {

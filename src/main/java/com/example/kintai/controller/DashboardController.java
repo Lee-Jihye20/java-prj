@@ -27,13 +27,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-
-
 @Controller
 
 public class DashboardController {
-
-
 
     @Autowired
 
@@ -57,7 +53,6 @@ public class DashboardController {
     @Autowired
     private HighlightService highlightService;
 
-
     @Autowired
     private EvaluationTrendService evaluationTrendService;
 
@@ -70,14 +65,12 @@ public class DashboardController {
         if (user == null) {
             return "redirect:/login";
         }
-        // 管理タイプは管理画面へ、従業員タイプは従業員画面へ
+        
         if ("ADMIN".equals(user.getRole())) {
             return "redirect:/admin/dashboard";
         }
         return "redirect:/employee/dashboard";
     }
-
-
 
     @GetMapping("/employee/dashboard")
     public String employeeDashboard(Authentication authentication, Model model) {
@@ -85,26 +78,20 @@ public class DashboardController {
         if (user == null) {
             return "redirect:/login";
         }
-        // 管理タイプは管理画面のみ表示。従業員画面へ直接アクセスした場合は管理画面へリダイレクト
+        
         if ("ADMIN".equals(user.getRole())) {
             return "redirect:/admin/dashboard";
         }
 
-        // ダッシュボード統計情報を取得
-
         DashboardStatisticsDTO statistics = dashboardStatisticsService.getDashboardStatistics(user.getId());
 
-        // 休憩設定を取得
         CompanySettings companySettings = companySettingsRepository.findByCompanyId(user.getCompany().getId())
                 .orElse(new CompanySettings());
 
-        // 今日の勤怠状態を取得
         AttendanceService.TodayAttendanceStatus todayStatus = attendanceService.getTodayAttendanceStatus(user.getId());
 
-        // 管理者機能にアクセスできる権限があるかチェック
         boolean canAccessAdmin = permissionService.canAccessAdminFeatures(user);
 
-        // 各権限をチェックしてメニュー表示用に追加
         boolean canViewUsers = permissionService.hasPermission(user, "VIEW_USER_LIST");
         boolean canManageUsers = permissionService.hasPermission(user, "MANAGE_USER");
         boolean canManageRoles = permissionService.hasPermission(user, "MANAGE_ROLE");
@@ -131,16 +118,12 @@ public class DashboardController {
         model.addAttribute("canManageSettings", canManageSettings);
         model.addAttribute("canViewReports", canViewReports);
 
-        // ハイライトデータを取得（前月の週ごとの評価・勤務時間・残業時間）
-        // 開発環境なので常に表示
         List<WeeklyHighlightDTO> highlights = highlightService.getPreviousMonthHighlights(user.getId());
         model.addAttribute("highlights", highlights);
 
-        // 異常検知で検出された当人分の残業超過リスト（修正依頼の案内用）。計算・扱いは OvertimeExcessService に集約。
         List<Attendance> myOvertimeExcess = overtimeExcessService.getUnresolvedOvertimeForUser(user.getId(), user.getCompany().getId());
         model.addAttribute("overtimeExcessAttendances", myOvertimeExcess);
 
-        // 異常検知で検出された当人分の退勤未打刻リスト（修正依頼の案内用）。解決済みは除外。
         List<Attendance> companyMissingCheckout = attendanceService.detectMissingCheckOut(user.getCompany().getId());
         List<Attendance> myMissingCheckout = companyMissingCheckout.stream()
                 .filter(a -> a.getUser() != null && user.getId().equals(a.getUser().getId()))
@@ -152,21 +135,16 @@ public class DashboardController {
 
     }
 
-    /**
-     * 評価ダッシュボード（事実ベース評価のみ）
-     */
     @GetMapping("/evaluation/dashboard")
     public String evaluationDashboard(Authentication authentication, Model model) {
         User user = getUserFromAuth(authentication);
         YearMonth currentMonth = YearMonth.now();
 
-        // 現在の月の事実ベース評価を計算・取得（自動計算）
         var factBasedEval = factBasedEvaluationService.calculateAndSaveMonthlyEvaluation(user.getId(), currentMonth);
         if (factBasedEval != null) {
             model.addAttribute("factBasedEvaluation", factBasedEval);
         }
 
-        // 過去6ヶ月のトレンドを取得
         List<EvaluationTrendDTO> trends = evaluationTrendService.getEmployeeTrend(user.getId(), 6);
         model.addAttribute("trends", trends);
         model.addAttribute("trendAnalysis", evaluationTrendService.analyzeTrend(trends));
@@ -177,9 +155,6 @@ public class DashboardController {
         return "evaluation_dashboard";
     }
 
-    /**
-     * 認証からユーザー取得
-     */
     private User getUserFromAuth(Authentication authentication) {
         return (User) authentication.getPrincipal();
     }

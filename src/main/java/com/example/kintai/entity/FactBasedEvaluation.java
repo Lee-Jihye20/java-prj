@@ -19,25 +19,25 @@ public class FactBasedEvaluation {
     private User employee;
 
     @Column(name = "year_month", nullable = false)
-    private LocalDate yearMonth; // 年月（月初日）
+    private LocalDate yearMonth; 
 
     @Column(name = "late_count", nullable = false)
-    private Integer lateCount = 0; // 遅刻回数
+    private Integer lateCount = 0; 
 
     @Column(name = "application_compliance_rate", nullable = false, precision = 5, scale = 2)
-    private BigDecimal applicationComplianceRate = BigDecimal.ZERO; // 申請遵守率（0-100）
+    private BigDecimal applicationComplianceRate = BigDecimal.ZERO; 
 
     @Column(name = "fix_request_count", nullable = false)
-    private Integer fixRequestCount = 0; // 打刻修正回数
+    private Integer fixRequestCount = 0; 
 
     @Column(name = "consecutive_work_days", nullable = false)
-    private Integer consecutiveWorkDays = 0; // 連続勤務日数
+    private Integer consecutiveWorkDays = 0; 
 
     @Column(name = "overtime_accuracy", nullable = false, precision = 5, scale = 2)
-    private BigDecimal overtimeAccuracy = BigDecimal.ZERO; // 残業申請の正確性（0-100）
+    private BigDecimal overtimeAccuracy = BigDecimal.ZERO; 
 
     @Column(name = "total_score", nullable = false, precision = 5, scale = 2)
-    private BigDecimal totalScore = BigDecimal.ZERO; // 総合スコア（0-100）
+    private BigDecimal totalScore = BigDecimal.ZERO; 
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -56,7 +56,6 @@ public class FactBasedEvaluation {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }

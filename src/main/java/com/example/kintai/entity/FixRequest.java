@@ -21,7 +21,7 @@ public class FixRequest {
     private User user;
 
     @Column(name = "request_type", nullable = false, length = 20)
-    private String requestType; // CHECK_IN, CHECK_OUT, BREAK_START, BREAK_END, LEAVE_START, LEAVE_END, LEAVE_TYPE
+    private String requestType; 
 
     @Column(name = "new_value")
     private LocalDateTime newValue;
@@ -34,13 +34,13 @@ public class FixRequest {
     private com.example.kintai.entity.LeaveRecord leaveRecord;
 
     @Column(name = "new_leave_type", length = 20)
-    private String newLeaveType; // DEDUCTION, PAID_LEAVE
+    private String newLeaveType; 
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
     @Column(nullable = false, length = 20)
-    private String status = "PENDING"; // PENDING, APPROVED, REJECTED
+    private String status = "PENDING"; 
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -49,11 +49,9 @@ public class FixRequest {
     @JoinColumn(name = "approved_by_user_id")
     private User approvedBy;
 
-    // Constructors
     public FixRequest() {
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -175,9 +173,6 @@ public class FixRequest {
         this.newLeaveType = newLeaveType;
     }
 
-    /**
-     * 修正項目を日本語で取得
-     */
     public String getRequestTypeInJapanese() {
         if (requestType == null) {
             return "不明";
@@ -208,9 +203,6 @@ public class FixRequest {
         }
     }
 
-    /**
-     * ステータスを日本語で取得
-     */
     public String getStatusInJapanese() {
         if (status == null) {
             return "不明";

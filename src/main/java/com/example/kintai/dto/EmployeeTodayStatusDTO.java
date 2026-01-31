@@ -6,13 +6,13 @@ import java.time.LocalTime;
 public class EmployeeTodayStatusDTO {
     private Long userId;
     private String username;
-    private String status; // WORKING, COMPLETED, NOT_STARTED, LATE
+    private String status; 
     private LocalDateTime checkInTime;
     private LocalDateTime checkOutTime;
-    private LocalTime startTime; // 始業時間
+    private LocalTime startTime; 
     private boolean isOnBreak;
     private boolean isOnLeave;
-    private String statusLabel; // 日本語ラベル
+    private String statusLabel; 
 
     public EmployeeTodayStatusDTO() {
     }
@@ -52,7 +52,6 @@ public class EmployeeTodayStatusDTO {
         }
     }
 
-    // Getters and Setters
     public Long getUserId() {
         return userId;
     }

@@ -105,7 +105,6 @@ public class AdminActionLog {
         this.createdAt = createdAt;
     }
 
-    /** アクション種別の日本語表示 */
     public String getActionTypeInJapanese() {
         if (actionType == null) return "";
         switch (actionType) {

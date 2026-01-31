@@ -2,18 +2,16 @@ package com.example.kintai.dto;
 
 public class DashboardStatisticsDTO {
 
-    private double todayWorkHours; // 今日の勤務時間
-    private double weekWorkHours; // 今週の勤務時間
-    private double monthWorkHours; // 今月の勤務時間
-    private double monthOvertimeHours; // 今月の残業時間
-    private int monthWorkDays; // 今月の出勤日数
-    private String currentStatus; // 現在の状態（出勤中、退勤済みなど）
+    private double todayWorkHours; 
+    private double weekWorkHours; 
+    private double monthWorkHours; 
+    private double monthOvertimeHours; 
+    private int monthWorkDays; 
+    private String currentStatus; 
 
-    // Constructors
     public DashboardStatisticsDTO() {
     }
 
-    // Getters and Setters
     public double getTodayWorkHours() {
         return todayWorkHours;
     }

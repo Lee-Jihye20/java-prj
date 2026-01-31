@@ -9,9 +9,6 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 
 import java.io.IOException;
 
-/**
- * ログイン成功時、アカウントタイプ（管理/従業員）に応じてリダイレクト先を切り替える
- */
 public class RoleBasedAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     @Override

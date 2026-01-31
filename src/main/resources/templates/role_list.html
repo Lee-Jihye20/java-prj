@@ -105,7 +105,7 @@
         </div>
 
         <div class="content" style="position: relative; padding-bottom: 80px;">
-            <!-- 既存ロール一覧 -->
+            
             <section class="card">
                 <h2>既存ロール一覧</h2>
                 <div th:if="${roles.isEmpty()}">
@@ -119,7 +119,7 @@
                                   style="display: inline-block; font-size: 0.8em; color: #999; margin-left: 10px;">(システムロール)</span>
                         </div>
                         <div th:if="${!role.isSystemRole}">
-                            <!-- 権限IDを隠し要素として保持 -->
+                            
                             <span th:if="${role.permissions != null and !role.permissions.isEmpty()}" 
                                   th:each="perm, iterStat : ${role.permissions}"
                                   th:attr="data-role-${role.id}-perm=${perm.id}"
@@ -149,13 +149,13 @@
             </section>
         </div>
 
-        <!-- 新規作成ボタン（右下固定） -->
+        
         <button id="createRoleBtn" class="btn-primary" style="position: fixed; bottom: 30px; right: 30px; padding: 15px 30px; font-size: 16px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 999; border: none; cursor: pointer;">
             ➕ 新規ロール作成
         </button>
     </div>
 
-    <!-- 新規ロール作成モーダル -->
+    
     <div id="createRoleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 500px; max-width: 700px; max-height: 90vh; overflow-y: visible; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column;">
             <h2 style="margin-top: 0; flex-shrink: 0;">新規ロール作成</h2>
@@ -201,7 +201,7 @@
         </div>
     </div>
 
-    <!-- ロール編集モーダル -->
+    
     <div id="editRoleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 500px; max-width: 700px; max-height: 90vh; overflow-y: visible; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column;">
             <h2 style="margin-top: 0; flex-shrink: 0;">ロール編集</h2>
