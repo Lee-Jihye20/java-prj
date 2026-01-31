@@ -1,15 +1,17 @@
 package com.example.kintai.controller;
 
 import com.example.kintai.dto.DashboardStatisticsDTO;
+import com.example.kintai.entity.Attendance;
 import com.example.kintai.entity.CompanySettings;
 import com.example.kintai.entity.User;
+import com.example.kintai.repository.AnomalyApprovalRepository;
 import com.example.kintai.repository.CompanySettingsRepository;
 import com.example.kintai.service.AttendanceService;
 import com.example.kintai.service.DashboardStatisticsService;
+import com.example.kintai.service.OvertimeExcessService;
 import com.example.kintai.service.PermissionService;
 import com.example.kintai.service.HighlightService;
 import com.example.kintai.dto.WeeklyHighlightDTO;
-import com.example.kintai.service.SelfEvaluationService;
 import com.example.kintai.service.EvaluationTrendService;
 import com.example.kintai.service.FactBasedEvaluationService;
 import com.example.kintai.dto.EvaluationTrendDTO;
@@ -44,13 +46,17 @@ public class DashboardController {
     private AttendanceService attendanceService;
 
     @Autowired
+    private OvertimeExcessService overtimeExcessService;
+
+    @Autowired
+    private AnomalyApprovalRepository anomalyApprovalRepository;
+
+    @Autowired
     private PermissionService permissionService;
 
     @Autowired
     private HighlightService highlightService;
 
-    @Autowired
-    private SelfEvaluationService selfEvaluationService;
 
     @Autowired
     private EvaluationTrendService evaluationTrendService;
@@ -130,25 +136,31 @@ public class DashboardController {
         List<WeeklyHighlightDTO> highlights = highlightService.getPreviousMonthHighlights(user.getId());
         model.addAttribute("highlights", highlights);
 
+        // 異常検知で検出された当人分の残業超過リスト（修正依頼の案内用）。計算・扱いは OvertimeExcessService に集約。
+        List<Attendance> myOvertimeExcess = overtimeExcessService.getUnresolvedOvertimeForUser(user.getId(), user.getCompany().getId());
+        model.addAttribute("overtimeExcessAttendances", myOvertimeExcess);
+
+        // 異常検知で検出された当人分の退勤未打刻リスト（修正依頼の案内用）。解決済みは除外。
+        List<Attendance> companyMissingCheckout = attendanceService.detectMissingCheckOut(user.getCompany().getId());
+        List<Attendance> myMissingCheckout = companyMissingCheckout.stream()
+                .filter(a -> a.getUser() != null && user.getId().equals(a.getUser().getId()))
+                .filter(a -> !anomalyApprovalRepository.existsByAttendance_IdAndAnomalyTypeAndApprovedTrue(a.getId(), "MISSING_CHECKOUT"))
+                .toList();
+        model.addAttribute("missingCheckoutAttendances", myMissingCheckout);
+
         return "employee_dashboard";
 
     }
 
     /**
-     * 評価ダッシュボード（自己評価・事実ベース評価・比較）
+     * 評価ダッシュボード（事実ベース評価のみ）
      */
     @GetMapping("/evaluation/dashboard")
     public String evaluationDashboard(Authentication authentication, Model model) {
         User user = getUserFromAuth(authentication);
         YearMonth currentMonth = YearMonth.now();
 
-        // 現在の月の自己評価を取得
-        selfEvaluationService.getSelfEvaluation(user.getId(), currentMonth)
-                .ifPresent(self -> {
-                    model.addAttribute("selfEvaluation", self);
-                });
-
-        // 現在の月の事実ベース評価を計算・取得
+        // 現在の月の事実ベース評価を計算・取得（自動計算）
         var factBasedEval = factBasedEvaluationService.calculateAndSaveMonthlyEvaluation(user.getId(), currentMonth);
         if (factBasedEval != null) {
             model.addAttribute("factBasedEvaluation", factBasedEval);
@@ -163,28 +175,6 @@ public class DashboardController {
         model.addAttribute("currentMonth", currentMonth);
 
         return "evaluation_dashboard";
-    }
-
-    /**
-     * 自己評価を保存
-     */
-    @PostMapping("/evaluation/self")
-    public String saveSelfEvaluation(@RequestParam String rating,
-                                     @RequestParam(required = false) String comment,
-                                     @RequestParam String yearMonth,
-                                     Authentication authentication,
-                                     RedirectAttributes redirectAttributes) {
-        User user = getUserFromAuth(authentication);
-        
-        try {
-            YearMonth targetMonth = YearMonth.parse(yearMonth);
-            selfEvaluationService.saveSelfEvaluation(user.getId(), targetMonth, rating, comment);
-            redirectAttributes.addFlashAttribute("successMessage", "自己評価を保存しました");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "自己評価の保存に失敗しました: " + e.getMessage());
-        }
-        
-        return "redirect:/evaluation/dashboard";
     }
 
     /**

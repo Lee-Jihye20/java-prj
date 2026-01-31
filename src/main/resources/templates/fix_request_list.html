@@ -36,6 +36,34 @@
         <div class="content">
             <section class="card">
                 <h2>依頼一覧</h2>
+                <form th:action="${fixRequestListPath}" method="get" class="search-form" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px;">
+                    <div>
+                        <label for="requestType" style="display: block; margin-bottom: 4px; font-size: 0.9em;">修正項目</label>
+                        <select id="requestType" name="requestType" style="padding: 6px 10px; min-width: 160px;">
+                            <option value="" th:selected="${searchRequestType == null || searchRequestType.isEmpty()}">全て</option>
+                            <option value="CHECK_IN" th:selected="${searchRequestType == 'CHECK_IN'}">出勤時刻</option>
+                            <option value="CHECK_OUT" th:selected="${searchRequestType == 'CHECK_OUT'}">退勤時刻</option>
+                            <option value="BREAK_START" th:selected="${searchRequestType == 'BREAK_START'}">休憩開始時刻</option>
+                            <option value="BREAK_END" th:selected="${searchRequestType == 'BREAK_END'}">休憩終了時刻</option>
+                            <option value="LEAVE_START" th:selected="${searchRequestType == 'LEAVE_START'}">中抜け開始時刻</option>
+                            <option value="LEAVE_END" th:selected="${searchRequestType == 'LEAVE_END'}">中抜け終了時刻</option>
+                            <option value="LEAVE_TYPE" th:selected="${searchRequestType == 'LEAVE_TYPE'}">中抜けの扱い</option>
+                            <option value="OVERTIME_APPLICATION" th:selected="${searchRequestType == 'OVERTIME_APPLICATION'}">理由付き残業申請</option>
+                            <option value="CHECK_IN_AND_OUT" th:selected="${searchRequestType == 'CHECK_IN_AND_OUT'}">打刻訂正（出勤・退勤）</option>
+                            <option value="BREAK_START_AND_END" th:selected="${searchRequestType == 'BREAK_START_AND_END'}">休憩補正（開始・終了）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="status" style="display: block; margin-bottom: 4px; font-size: 0.9em;">ステータス</label>
+                        <select id="status" name="status" style="padding: 6px 10px; min-width: 140px;">
+                            <option value="" th:selected="${searchStatus == null || searchStatus.isEmpty()}">全て</option>
+                            <option value="PENDING" th:selected="${searchStatus == 'PENDING'}">保留中</option>
+                            <option value="APPROVED" th:selected="${searchStatus == 'APPROVED'}">承認済み</option>
+                            <option value="REJECTED" th:selected="${searchStatus == 'REJECTED'}">却下</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-secondary" style="padding: 6px 16px;">検索</button>
+                </form>
                 <div class="table-wrapper">
                     <table class="attendance-table">
                         <thead>
@@ -54,8 +82,18 @@
                             <tr th:each="request : ${fixRequests}">
                                 <td th:text="${request.id}"></td>
                                 <td th:text="${request.attendanceId}"></td>
-                                <td th:text="${request.requestType}"></td>
-                                <td th:text="${#temporals.format(request.newValue, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td th:text="${request.requestTypeInJapanese}"></td>
+                                <td>
+                                    <span th:if="${request.requestType == 'CHECK_IN_AND_OUT' and request.newValue != null and request.newValue2 != null}"
+                                          th:text="${'出勤 ' + #temporals.format(request.newValue, 'yyyy-MM-dd HH:mm') + ' / 退勤 ' + #temporals.format(request.newValue2, 'yyyy-MM-dd HH:mm')}">出勤・退勤</span>
+                                    <span th:if="${request.requestType == 'BREAK_START_AND_END' and request.newValue != null and request.newValue2 != null}"
+                                          th:text="${'開始 ' + #temporals.format(request.newValue, 'yyyy-MM-dd HH:mm') + ' / 終了 ' + #temporals.format(request.newValue2, 'yyyy-MM-dd HH:mm')}">開始・終了</span>
+                                    <span th:if="${request.requestType == 'LEAVE_TYPE'}"
+                                          th:text="${request.newLeaveType == 'DEDUCTION' ? '控除' : (request.newLeaveType == 'PAID_LEAVE' ? '有給' : '-')}">扱い</span>
+                                    <span th:if="${request.requestType != 'CHECK_IN_AND_OUT' and request.requestType != 'BREAK_START_AND_END' and request.requestType != 'LEAVE_TYPE' and request.requestType != 'OVERTIME_APPLICATION' and request.newValue != null}"
+                                          th:text="${#temporals.format(request.newValue, 'yyyy-MM-dd HH:mm')}">値</span>
+                                    <span th:if="${request.requestType == 'OVERTIME_APPLICATION' or ((request.requestType != 'CHECK_IN_AND_OUT' and request.requestType != 'BREAK_START_AND_END' and request.requestType != 'LEAVE_TYPE') and request.newValue == null)}">-</span>
+                                </td>
                                 <td th:text="${request.reason}"></td>
                                 <td>
                                     <span th:class="${request.status == 'PENDING' ? 'status-pending' : (request.status == 'APPROVED' ? 'status-approved' : 'status-rejected')}"
@@ -63,11 +101,13 @@
                                 </td>
                                 <td th:text="${#temporals.format(request.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                                 <td sec:authorize="hasAuthority('ADMIN')">
-                                    <div th:if="${request.status == 'PENDING'}">
+                                    <div th:if="${request.status == 'PENDING'}" style="display: flex; gap: 12px; align-items: center;">
                                         <form th:action="@{/admin/fix-request/approve/{id}(id=${request.id})}" method="post" style="display: inline;">
+                                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                                             <button type="submit" class="btn-approve">承認</button>
                                         </form>
                                         <form th:action="@{/admin/fix-request/reject/{id}(id=${request.id})}" method="post" style="display: inline;">
+                                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                                             <button type="submit" class="btn-reject">却下</button>
                                         </form>
                                     </div>

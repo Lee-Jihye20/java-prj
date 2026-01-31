@@ -151,26 +151,26 @@
                         </p>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="logSlackWebhookUrlGroup">
                         <label for="logSlackWebhookUrl">SLACKのログチャンネルのWebhookURL:</label>
                         <input type="url" 
                                id="logSlackWebhookUrl" 
                                name="logSlackWebhookUrl" 
                                class="form-control" 
-                               th:value="${breakSettings.logSlackWebhookUrl}"
+                               th:value="${breakSettings.logSlackWebhookUrl != null ? breakSettings.logSlackWebhookUrl : ''}"
                                placeholder="https://hooks.slack.com/services/...">
                         <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
                             打刻ログを送信するSlackチャンネルのWebhook URLを設定します。
                         </p>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="alertSlackWebhookUrlGroup">
                         <label for="alertSlackWebhookUrl">SLACKの異常・修正依頼通知用のWebhookURL:</label>
                         <input type="url" 
                                id="alertSlackWebhookUrl" 
                                name="alertSlackWebhookUrl" 
                                class="form-control" 
-                               th:value="${breakSettings.alertSlackWebhookUrl}"
+                               th:value="${breakSettings.alertSlackWebhookUrl != null ? breakSettings.alertSlackWebhookUrl : ''}"
                                placeholder="https://hooks.slack.com/services/...">
                         <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
                             異常検知や修正依頼の通知を送信するSlackチャンネルのWebhook URLを設定します。
@@ -306,6 +306,41 @@
     </div>
 
     <script>
+        // Slack通知設定の表示/非表示を制御
+        const slackNotificationEnabled = document.getElementById('slackNotificationEnabled');
+        const logSlackWebhookUrlGroup = document.getElementById('logSlackWebhookUrlGroup');
+        const alertSlackWebhookUrlGroup = document.getElementById('alertSlackWebhookUrlGroup');
+        
+        function toggleSlackWebhookFields() {
+            if (slackNotificationEnabled && logSlackWebhookUrlGroup && alertSlackWebhookUrlGroup) {
+                if (slackNotificationEnabled.value === 'true') {
+                    logSlackWebhookUrlGroup.style.display = 'block';
+                    alertSlackWebhookUrlGroup.style.display = 'block';
+                } else {
+                    logSlackWebhookUrlGroup.style.display = 'none';
+                    alertSlackWebhookUrlGroup.style.display = 'none';
+                }
+            }
+        }
+        
+        if (slackNotificationEnabled) {
+            slackNotificationEnabled.addEventListener('change', toggleSlackWebhookFields);
+            
+            // ページ読み込み時に初期状態を設定
+            document.addEventListener('DOMContentLoaded', function() {
+                toggleSlackWebhookFields();
+            });
+        }
+        
+        // ページ読み込み時に初期状態を設定（DOMContentLoadedが既に発火している場合に備えて）
+        if (slackNotificationEnabled && logSlackWebhookUrlGroup && alertSlackWebhookUrlGroup) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', toggleSlackWebhookFields);
+            } else {
+                toggleSlackWebhookFields();
+            }
+        }
+
         // 休憩入力方式が「昼休憩固定時間」の場合、固定時間入力欄を表示
         const breakInputMode = document.getElementById('breakInputMode');
         if (breakInputMode) {

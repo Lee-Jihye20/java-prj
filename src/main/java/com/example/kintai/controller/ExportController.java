@@ -45,8 +45,17 @@ public class ExportController {
             return "redirect:/employee/dashboard";
         }
 
-        // 同じ企業のユーザー一覧を取得
-        List<User> companyUsers = userRepository.findAllByCompanyId(user.getCompany().getId());
+        // 同じ企業のユーザー一覧を取得（管理者ロールを除外）
+        List<User> companyUsers = userRepository.findAllByCompanyId(user.getCompany().getId())
+                .stream()
+                .filter(u -> !"ADMIN".equals(u.getRole()))
+                .collect(java.util.stream.Collectors.toList());
+        
+        // 管理者ロールのユーザー一覧を取得（管理者ログエクスポート用）
+        List<User> adminUsers = userRepository.findAllByCompanyId(user.getCompany().getId())
+                .stream()
+                .filter(u -> "ADMIN".equals(u.getRole()))
+                .collect(java.util.stream.Collectors.toList());
         
         // 現在の日付を取得（デフォルト値用）
         LocalDate today = LocalDate.now();
@@ -67,6 +76,7 @@ public class ExportController {
 
         model.addAttribute("username", user.getUsername());
         model.addAttribute("users", companyUsers);
+        model.addAttribute("adminUsers", adminUsers);
         model.addAttribute("currentYear", currentYear);
         model.addAttribute("currentMonth", currentMonth);
         model.addAttribute("years", years);
@@ -196,6 +206,60 @@ public class ExportController {
 
             ByteArrayResource resource = new ByteArrayResource(data);
             String filename = String.format("打刻ログ_%s_%s.xlsx",
+                    start.format(DateTimeFormatter.ofPattern("yyyyMMdd")),
+                    end.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+            String encodedFilename = java.net.URLEncoder.encode(filename, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                            String.format("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, encodedFilename))
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .contentLength(data.length)
+                    .body(resource);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * 管理者ログをエクスポート（管理者用）
+     */
+    @GetMapping("/admin-log")
+    public ResponseEntity<ByteArrayResource> exportAdminLog(
+            @RequestParam Long adminId,
+            @RequestParam String startDate,
+            @RequestParam String endDate,
+            Authentication authentication) {
+        try {
+            User user = getUserFromAuth(authentication);
+            
+            // 権限チェック：エクスポート権限が必要
+            if (!permissionService.hasPermission(user, "EXPORT_DATA")) {
+                return ResponseEntity.status(403).build();
+            }
+
+            // 管理者ユーザーが同じ企業に属しているか確認
+            User targetAdmin = userRepository.findById(adminId)
+                    .orElseThrow(() -> new IllegalArgumentException("管理者が見つかりません"));
+            if (!targetAdmin.getCompany().getId().equals(user.getCompany().getId())) {
+                return ResponseEntity.status(403).build();
+            }
+            
+            // 管理者ロールか確認
+            if (!"ADMIN".equals(targetAdmin.getRole())) {
+                return ResponseEntity.status(400).build();
+            }
+
+            LocalDate start = LocalDate.parse(startDate, DateTimeFormatter.ISO_DATE);
+            LocalDate end = LocalDate.parse(endDate, DateTimeFormatter.ISO_DATE);
+
+            byte[] data = exportService.exportAdminLog(adminId, start, end);
+
+            ByteArrayResource resource = new ByteArrayResource(data);
+            String filename = String.format("管理者ログ_%s_%s_%s.xlsx",
+                    targetAdmin.getUsername(),
                     start.format(DateTimeFormatter.ofPattern("yyyyMMdd")),
                     end.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
             String encodedFilename = java.net.URLEncoder.encode(filename, java.nio.charset.StandardCharsets.UTF_8)

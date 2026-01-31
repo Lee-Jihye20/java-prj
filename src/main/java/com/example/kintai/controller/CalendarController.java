@@ -3,8 +3,9 @@ package com.example.kintai.controller;
 import com.example.kintai.entity.Attendance;
 import com.example.kintai.entity.BreakRecord;
 import com.example.kintai.entity.User;
-import com.example.kintai.repository.BreakRecordRepository;
 import com.example.kintai.service.AttendanceService;
+import com.example.kintai.service.BreakRecordService;
+import com.example.kintai.service.LeaveRecordService;
 import com.example.kintai.service.PermissionService;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,10 @@ public class CalendarController {
     private AttendanceService attendanceService;
 
     @Autowired
-    private BreakRecordRepository breakRecordRepository;
+    private BreakRecordService breakRecordService;
+
+    @Autowired
+    private LeaveRecordService leaveRecordService;
 
     @Autowired
     private PermissionService permissionService;
@@ -72,20 +76,15 @@ public class CalendarController {
                 calendarDay.setDay(day);
                 calendarDay.setAttendance(attendance);
 
-                // 休憩記録を取得
-                List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
+                // 休憩記録を取得（BreakRecordService に集約）
+                List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendance.getId());
                 calendarDay.setBreakRecords(breakRecords);
 
-                // 勤務時間を計算
+                // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
                 if (attendance.getCheckOut() != null) {
                     long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
-
-                    // 休憩時間を引く（BreakRecordを使用）
-                    long totalBreakMinutes = breakRecords.stream()
-                            .filter(br -> br.getBreakEnd() != null)
-                            .mapToLong(BreakRecord::getBreakMinutes)
-                            .sum();
-                    workMinutes -= totalBreakMinutes;
+                    workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
+                    workMinutes -= leaveRecordService.getTotalDeductionLeaveMinutes(attendance.getId());
 
                     calendarDay.setWorkHours(workMinutes / 60.0);
 
@@ -171,8 +170,8 @@ public class CalendarController {
             throw new IllegalArgumentException("権限がありません");
         }
         
-        // 休憩記録を取得
-        List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendanceId);
+        // 休憩記録を取得（BreakRecordService に集約）
+        List<BreakRecord> breakRecords = breakRecordService.getBreakRecordsByAttendanceId(attendanceId);
         
         Map<String, Object> result = new HashMap<>();
         result.put("checkIn", attendance.getCheckIn() != null ? 
@@ -194,14 +193,11 @@ public class CalendarController {
         }
         result.put("breaks", breaks);
         
-        // 勤務時間を計算
+        // 実働時間を計算（出退勤差 − 休憩 − 中抜け（控除））
         if (attendance.getCheckIn() != null && attendance.getCheckOut() != null) {
             long workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
-            long totalBreakMinutes = breakRecords.stream()
-                    .filter(br -> br.getBreakEnd() != null)
-                    .mapToLong(BreakRecord::getBreakMinutes)
-                    .sum();
-            workMinutes -= totalBreakMinutes;
+            workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
+            workMinutes -= leaveRecordService.getTotalDeductionLeaveMinutes(attendanceId);
             result.put("workHours", workMinutes / 60.0);
         }
         

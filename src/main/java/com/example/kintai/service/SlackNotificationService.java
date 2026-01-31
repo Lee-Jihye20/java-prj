@@ -27,7 +27,9 @@ public class SlackNotificationService {
     public void sendAdminNotification(String message, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            if (s.getAdminSlackWebhookUrl() != null && !s.getAdminSlackWebhookUrl().isEmpty()) {
+            // Slack通知が有効で、Webhook URLが設定されている場合のみ送信
+            if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
+                    && s.getAdminSlackWebhookUrl() != null && !s.getAdminSlackWebhookUrl().isEmpty()) {
                 sendSlackMessage(s.getAdminSlackWebhookUrl(), message);
             }
         });
@@ -36,8 +38,10 @@ public class SlackNotificationService {
     public void sendAttendanceNotification(String message, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            if (s.getAttendanceSlackWebhookUrl() != null && !s.getAttendanceSlackWebhookUrl().isEmpty()) {
-                sendSlackMessage(s.getAttendanceSlackWebhookUrl(), message);
+            // Slack通知が有効で、ログチャンネルのWebhook URLが設定されている場合のみ送信
+            if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
+                    && s.getLogSlackWebhookUrl() != null && !s.getLogSlackWebhookUrl().isEmpty()) {
+                sendSlackMessage(s.getLogSlackWebhookUrl(), message);
             }
         });
     }
@@ -61,13 +65,15 @@ public class SlackNotificationService {
     }
 
     /**
-     * 管理者チャンネルにembed形式でメッセージを送信
+     * 管理者チャンネルにembed形式でメッセージを送信（異常検知・修正依頼通知用）
      */
     public void sendAdminNotificationWithAttachment(Map<String, Object> attachmentPayload, Long companyId) {
         Optional<CompanySettings> settings = companySettingsRepository.findByCompanyId(companyId);
         settings.ifPresent(s -> {
-            if (s.getAdminSlackWebhookUrl() != null && !s.getAdminSlackWebhookUrl().isEmpty()) {
-                sendSlackAttachmentMessage(s.getAdminSlackWebhookUrl(), attachmentPayload);
+            // Slack通知が有効で、異常・修正依頼通知用のWebhook URLが設定されている場合のみ送信
+            if (Boolean.TRUE.equals(s.getSlackNotificationEnabled()) 
+                    && s.getAlertSlackWebhookUrl() != null && !s.getAlertSlackWebhookUrl().isEmpty()) {
+                sendSlackAttachmentMessage(s.getAlertSlackWebhookUrl(), attachmentPayload);
             }
         });
     }
@@ -76,37 +82,55 @@ public class SlackNotificationService {
         Map<String, String> slackMessage = new HashMap<>();
         slackMessage.put("text", message);
 
-        webClientBuilder.build().post()
-                .uri(webhookUrl)
-                .bodyValue(slackMessage)
-                .retrieve()
-                .bodyToMono(String.class)
-                .subscribe(
-                        response -> System.out.println("Slack message sent successfully: " + response),
-                        error -> System.err.println("Failed to send Slack message: " + error.getMessage())
-                );
+        try {
+            webClientBuilder.build().post()
+                    .uri(webhookUrl)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(slackMessage)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .subscribe(
+                            response -> System.out.println("Slack message sent successfully: " + response),
+                            error -> System.err.println("Failed to send Slack message: " + error.getMessage())
+                    );
+        } catch (Exception e) {
+            System.err.println("Error sending Slack message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     private void sendSlackAttachmentMessage(String webhookUrl, String payload) {
-        webClientBuilder.build().post()
-                .uri(webhookUrl)
-                .bodyValue(payload) // ← textではなく full JSON をそのまま送信
-                .retrieve()
-                .bodyToMono(String.class)
-                .subscribe(
-                        response -> System.out.println("Slack attachment message sent successfully: " + response),
-                        error -> System.err.println("Failed to send Slack attachment message: " + error.getMessage())
-                );
+        try {
+            webClientBuilder.build().post()
+                    .uri(webhookUrl)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(payload) // ← textではなく full JSON をそのまま送信
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .subscribe(
+                            response -> System.out.println("Slack attachment message sent successfully: " + response),
+                            error -> System.err.println("Failed to send Slack attachment message: " + error.getMessage())
+                    );
+        } catch (Exception e) {
+            System.err.println("Error sending Slack attachment message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void sendSlackAttachmentMessage(String webhookUrl, Map<String, Object> payload) {
-        webClientBuilder.build().post()
-                .uri(webhookUrl)
-                .bodyValue(payload) // MapをJSONとして送信
-                .retrieve()
-                .bodyToMono(String.class)
-                .subscribe(
-                        response -> System.out.println("Slack attachment message sent successfully: " + response),
-                        error -> System.err.println("Failed to send Slack attachment message: " + error.getMessage())
-                );
+        try {
+            webClientBuilder.build().post()
+                    .uri(webhookUrl)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(payload) // MapをJSONとして送信
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .subscribe(
+                            response -> System.out.println("Slack attachment message sent successfully: " + response),
+                            error -> System.err.println("Failed to send Slack attachment message: " + error.getMessage())
+                    );
+        } catch (Exception e) {
+            System.err.println("Error sending Slack attachment message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

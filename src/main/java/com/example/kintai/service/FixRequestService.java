@@ -1,12 +1,13 @@
 package com.example.kintai.service;
 
+import com.example.kintai.entity.AnomalyApproval;
 import com.example.kintai.entity.Attendance;
 import com.example.kintai.entity.FixRequest;
 import com.example.kintai.entity.LeaveRecord;
 import com.example.kintai.entity.User;
+import com.example.kintai.repository.AnomalyApprovalRepository;
 import com.example.kintai.repository.AttendanceRepository;
 import com.example.kintai.repository.FixRequestRepository;
-import com.example.kintai.repository.LeaveRecordRepository;
 import com.example.kintai.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,10 +31,16 @@ public class FixRequestService {
     private AttendanceRepository attendanceRepository;
 
     @Autowired
-    private LeaveRecordRepository leaveRecordRepository;
+    private LeaveRecordService leaveRecordService;
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AnomalyApprovalRepository anomalyApprovalRepository;
+
+    @Autowired
+    private OvertimeExcessService overtimeExcessService;
 
     @Autowired
     private SlackNotificationService slackNotificationService;
@@ -53,6 +60,15 @@ public class FixRequestService {
     @Transactional
     public FixRequest createFixRequest(Long attendanceId, Long userId, String requestType,
                                         LocalDateTime newValue, Long leaveRecordId, String newLeaveType, String reason) {
+        return createFixRequest(attendanceId, userId, requestType, newValue, null, leaveRecordId, newLeaveType, reason);
+    }
+
+    /**
+     * 修正依頼を作成（出勤・退勤／開始・終了を一度に申請する場合の newValue2 対応）
+     */
+    @Transactional
+    public FixRequest createFixRequest(Long attendanceId, Long userId, String requestType,
+                                        LocalDateTime newValue, LocalDateTime newValue2, Long leaveRecordId, String newLeaveType, String reason) {
         // 勤怠レコードの存在確認
         Optional<Attendance> attendanceOptional = attendanceRepository.findById(attendanceId);
         if (attendanceOptional.isEmpty()) {
@@ -69,12 +85,8 @@ public class FixRequestService {
         // 中抜け関連の修正依頼の場合、中抜け記録の存在確認
         LeaveRecord leaveRecord = null;
         if (leaveRecordId != null) {
-            Optional<LeaveRecord> leaveRecordOptional = leaveRecordRepository.findById(leaveRecordId);
-            if (leaveRecordOptional.isEmpty()) {
-                throw new IllegalArgumentException("指定された中抜け記録が存在しません");
-            }
-            leaveRecord = leaveRecordOptional.get();
-            // 中抜け記録が該当の勤怠記録に属しているか確認
+            leaveRecord = leaveRecordService.getLeaveRecordById(leaveRecordId)
+                    .orElseThrow(() -> new IllegalArgumentException("指定された中抜け記録が存在しません"));
             if (!leaveRecord.getAttendance().getId().equals(attendanceId)) {
                 throw new IllegalArgumentException("指定された中抜け記録はこの勤怠記録に属していません");
             }
@@ -85,6 +97,7 @@ public class FixRequestService {
         fixRequest.setUser(user);
         fixRequest.setRequestType(requestType);
         fixRequest.setNewValue(newValue);
+        fixRequest.setNewValue2(newValue2);
         fixRequest.setLeaveRecord(leaveRecord);
         fixRequest.setNewLeaveType(newLeaveType);
         fixRequest.setReason(reason);
@@ -115,6 +128,14 @@ public class FixRequestService {
         if ("LEAVE_TYPE".equals(requestType)) {
             newValueField.put("title", "新しい値");
             newValueField.put("value", "DEDUCTION".equals(newLeaveType) ? "控除" : "有給");
+            newValueField.put("short", true);
+        } else if ("CHECK_IN_AND_OUT".equals(requestType) && newValue != null && newValue2 != null) {
+            newValueField.put("title", "新しい値");
+            newValueField.put("value", "出勤: " + newValue.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + ", 退勤: " + newValue2.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            newValueField.put("short", true);
+        } else if ("BREAK_START_AND_END".equals(requestType) && newValue != null && newValue2 != null) {
+            newValueField.put("title", "新しい値");
+            newValueField.put("value", "開始: " + newValue.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + ", 終了: " + newValue2.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
             newValueField.put("short", true);
         } else if (newValue != null) {
             newValueField.put("title", "新しい値");
@@ -211,7 +232,7 @@ public class FixRequestService {
                     if (fixRequest.getLeaveRecord() != null && fixRequest.getNewValue() != null) {
                         LeaveRecord leaveRecord = fixRequest.getLeaveRecord();
                         leaveRecord.setLeaveStart(fixRequest.getNewValue());
-                        leaveRecordRepository.saveAndFlush(leaveRecord);
+                        leaveRecordService.save(leaveRecord);
                     } else {
                         throw new IllegalArgumentException("中抜け記録または新しい値が指定されていません");
                     }
@@ -220,7 +241,7 @@ public class FixRequestService {
                     if (fixRequest.getLeaveRecord() != null && fixRequest.getNewValue() != null) {
                         LeaveRecord leaveRecord = fixRequest.getLeaveRecord();
                         leaveRecord.setLeaveEnd(fixRequest.getNewValue());
-                        leaveRecordRepository.saveAndFlush(leaveRecord);
+                        leaveRecordService.save(leaveRecord);
                     } else {
                         throw new IllegalArgumentException("中抜け記録または新しい値が指定されていません");
                     }
@@ -229,9 +250,30 @@ public class FixRequestService {
                     if (fixRequest.getLeaveRecord() != null && fixRequest.getNewLeaveType() != null) {
                         LeaveRecord leaveRecord = fixRequest.getLeaveRecord();
                         leaveRecord.setLeaveType(fixRequest.getNewLeaveType());
-                        leaveRecordRepository.saveAndFlush(leaveRecord);
+                        leaveRecordService.save(leaveRecord);
                     } else {
                         throw new IllegalArgumentException("中抜け記録または新しい扱いが指定されていません");
+                    }
+                    break;
+                case "OVERTIME_APPLICATION":
+                    // 理由付き残業申請：勤怠は変更せず、承認のみ（残業はそのまま確定）
+                    break;
+                case "CHECK_IN_AND_OUT":
+                    if (fixRequest.getNewValue() != null && fixRequest.getNewValue2() != null) {
+                        attendance.setCheckIn(fixRequest.getNewValue());
+                        attendance.setCheckOut(fixRequest.getNewValue2());
+                        attendanceRepository.saveAndFlush(attendance);
+                    } else {
+                        throw new IllegalArgumentException("出勤・退勤の両方の値が指定されていません");
+                    }
+                    break;
+                case "BREAK_START_AND_END":
+                    if (fixRequest.getNewValue() != null && fixRequest.getNewValue2() != null) {
+                        attendance.setBreakStart(fixRequest.getNewValue());
+                        attendance.setBreakEnd(fixRequest.getNewValue2());
+                        attendanceRepository.saveAndFlush(attendance);
+                    } else {
+                        throw new IllegalArgumentException("休憩開始・終了の両方の値が指定されていません");
                     }
                     break;
                 default:
@@ -251,6 +293,9 @@ public class FixRequestService {
         }
         
         FixRequest savedFixRequest = fixRequestRepository.saveAndFlush(fixRequest);
+
+        // 異常検知の修正依頼として承認した場合は、該当異常を解決済みにマーク（未解決一覧・従業員ポップアップから除外）
+        markAnomalyResolvedByFixRequest(savedFixRequest.getAttendanceId(), savedFixRequest.getRequestType(), approvedByUserId);
 
         // Slack通知 (ユーザーDM) - embed形式
         User user = savedFixRequest.getUser();
@@ -272,6 +317,14 @@ public class FixRequestService {
         if ("LEAVE_TYPE".equals(savedFixRequest.getRequestType())) {
             newValueField.put("title", "新しい値");
             newValueField.put("value", "DEDUCTION".equals(savedFixRequest.getNewLeaveType()) ? "控除" : "有給");
+            newValueField.put("short", true);
+        } else if ("CHECK_IN_AND_OUT".equals(savedFixRequest.getRequestType()) && savedFixRequest.getNewValue() != null && savedFixRequest.getNewValue2() != null) {
+            newValueField.put("title", "新しい値");
+            newValueField.put("value", "出勤: " + savedFixRequest.getNewValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + ", 退勤: " + savedFixRequest.getNewValue2().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            newValueField.put("short", true);
+        } else if ("BREAK_START_AND_END".equals(savedFixRequest.getRequestType()) && savedFixRequest.getNewValue() != null && savedFixRequest.getNewValue2() != null) {
+            newValueField.put("title", "新しい値");
+            newValueField.put("value", "開始: " + savedFixRequest.getNewValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + ", 終了: " + savedFixRequest.getNewValue2().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
             newValueField.put("short", true);
         } else if (savedFixRequest.getNewValue() != null) {
             newValueField.put("title", "新しい値");
@@ -369,6 +422,53 @@ public class FixRequestService {
     }
 
     /**
+     * 異常検知の修正依頼が承認された場合、該当異常を解決済みにマークする。
+     * 未解決の異常検知一覧および従業員ダッシュボードのポップアップから除外される。
+     * 残業超過関連の申請 → OVERTIME を解決、退勤時刻の申請（CHECK_OUT）→ MISSING_CHECKOUT を解決。
+     */
+    private void markAnomalyResolvedByFixRequest(Long attendanceId, String requestType, Long approvedByUserId) {
+        // 残業超過関連の申請承認時は OvertimeExcessService で解決済みに
+        if ("CHECK_IN".equals(requestType) || "CHECK_OUT".equals(requestType)
+                || "BREAK_START".equals(requestType) || "BREAK_END".equals(requestType)
+                || "CHECK_IN_AND_OUT".equals(requestType) || "BREAK_START_AND_END".equals(requestType)
+                || "OVERTIME_APPLICATION".equals(requestType)) {
+            overtimeExcessService.markResolved(attendanceId, approvedByUserId);
+        }
+        // 退勤時刻の申請承認時は退勤未打刻（MISSING_CHECKOUT）を解決済みに
+        if ("CHECK_OUT".equals(requestType)) {
+            markAnomalyResolved(attendanceId, "MISSING_CHECKOUT", approvedByUserId);
+        }
+    }
+
+    private void markAnomalyResolved(Long attendanceId, String anomalyType, Long approvedByUserId) {
+        Optional<AnomalyApproval> existing = anomalyApprovalRepository.findFirstByAttendance_IdAndAnomalyType(attendanceId, anomalyType);
+        User approver = null;
+        if (approvedByUserId != null) {
+            approver = userRepository.findById(approvedByUserId).orElse(null);
+        }
+        if (existing.isPresent()) {
+            AnomalyApproval a = existing.get();
+            a.setApproved(true);
+            a.setApprovedAt(LocalDateTime.now());
+            a.setApprovedBy(approver);
+            anomalyApprovalRepository.saveAndFlush(a);
+        } else {
+            Optional<Attendance> attOpt = attendanceRepository.findById(attendanceId);
+            if (attOpt.isEmpty()) {
+                return;
+            }
+            AnomalyApproval approval = new AnomalyApproval();
+            approval.setAttendance(attOpt.get());
+            approval.setAnomalyType(anomalyType);
+            approval.setApproved(true);
+            approval.setApprovedAt(LocalDateTime.now());
+            approval.setApprovedBy(approver);
+            approval.setReason("修正依頼承認により解決");
+            anomalyApprovalRepository.saveAndFlush(approval);
+        }
+    }
+
+    /**
      * 修正タイプを日本語ラベルに変換
      */
     private String getRequestTypeLabel(String requestType) {
@@ -387,6 +487,12 @@ public class FixRequestService {
                 return "中抜け終了時刻";
             case "LEAVE_TYPE":
                 return "中抜けの扱い";
+            case "OVERTIME_APPLICATION":
+                return "理由付き残業申請";
+            case "CHECK_IN_AND_OUT":
+                return "打刻訂正（出勤・退勤）";
+            case "BREAK_START_AND_END":
+                return "休憩補正（開始・終了）";
             default:
                 return requestType;
         }

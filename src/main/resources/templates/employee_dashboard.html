@@ -28,6 +28,40 @@
             <p th:text="${errorMessage}">エラーが発生しました</p>
         </div>
 
+        <!-- 残業超過の案内（異常検知で検出された場合） -->
+        <div th:if="${overtimeExcessAttendances != null and !overtimeExcessAttendances.isEmpty()}" 
+             style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-left: 6px solid #e65100; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <h3 style="margin: 0 0 10px 0; color: #e65100; font-size: 1.15em;">⚠️ 残業超過が検知されています</h3>
+            <p style="margin: 0 0 15px 0; color: #333; font-size: 1em; line-height: 1.6;">
+                勤怠データで残業超過が検知されました。<strong>修正依頼の提出が必要です。</strong>下のボタンから該当日の修正依頼画面へ進んでください。
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                <th:block th:each="att : ${overtimeExcessAttendances}">
+                    <a th:href="@{/attendance/fix-request/{id}(id=${att.id}, overtime=1)}" 
+                       class="btn-primary" 
+                       style="padding: 10px 20px; font-size: 1em; text-decoration: none; display: inline-block;"
+                       th:text="|${att.checkIn != null ? #temporals.format(att.checkIn, 'M月d日') : '該当'}の勤怠 — 修正依頼を出す|">修正依頼を出す</a>
+                </th:block>
+            </div>
+        </div>
+
+        <!-- 退勤未打刻の案内（異常検知で検出された場合） -->
+        <div th:if="${missingCheckoutAttendances != null and !missingCheckoutAttendances.isEmpty()}" 
+             style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 6px solid #1565c0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <h3 style="margin: 0 0 10px 0; color: #1565c0; font-size: 1.15em;">⚠️ 退勤未打刻が検知されています</h3>
+            <p style="margin: 0 0 15px 0; color: #333; font-size: 1em; line-height: 1.6;">
+                退勤打刻が記録されていません。<strong>修正依頼で退勤時刻を申請してください。</strong>下のボタンから該当日の修正依頼画面へ進んでください。
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                <th:block th:each="att : ${missingCheckoutAttendances}">
+                    <a th:href="@{/attendance/fix-request/{id}(id=${att.id}, missingCheckout=1)}" 
+                       class="btn-primary" 
+                       style="padding: 10px 20px; font-size: 1em; text-decoration: none; display: inline-block;"
+                       th:text="|${att.checkIn != null ? #temporals.format(att.checkIn, 'M月d日') : '該当'}の勤怠 — 退勤時刻を申請|">退勤時刻を申請</a>
+                </th:block>
+            </div>
+        </div>
+
         <div class="dashboard-content">
             <!-- 統計情報 -->
             <section class="card work-status-section" th:if="${statistics != null}">
@@ -55,13 +89,13 @@
                             <div class="stat-value status" th:text="${statistics.currentStatus}">未出勤</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">今月の勤務</div>
+                            <div class="stat-label">今月の通常勤務</div>
                             <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.monthWorkHours, 1, 1) + 'h'}">0.0h</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- 詳細表示 -->
+                <!-- 詳細表示（フルタイム: 通常勤務は1日8hまで、残業は8h超から） -->
                 <div id="workStatusDetailView">
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -77,11 +111,11 @@
                             <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.weekWorkHours, 1, 1) + 'h'}">0.0h</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">今月の勤務</div>
+                            <div class="stat-label">今月の通常勤務（8h/日まで）</div>
                             <div class="stat-value" th:text="${#numbers.formatDecimal(statistics.monthWorkHours, 1, 1) + 'h'}">0.0h</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">今月の残業</div>
+                            <div class="stat-label">今月の残業（8h超）</div>
                             <div class="stat-value overtime" th:text="${#numbers.formatDecimal(statistics.monthOvertimeHours, 1, 1) + 'h'}">0.0h</div>
                         </div>
                         <div class="stat-card">
@@ -183,13 +217,13 @@
                 </nav>
             </section>
 
-            <!-- ハイライト（前月の週ごとの評価・勤務時間・残業時間） -->
+            <!-- ハイライト（前月の評価・勤務時間・残業時間） -->
             <section class="card highlights-section" th:if="${highlights != null and !highlights.isEmpty()}">
                 <h2>📊 前月のハイライト</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">
                     <div th:each="highlight : ${highlights}" class="highlight-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">
-                            <span th:text="${#temporals.format(highlight.weekStartDate, 'MM/dd') + ' ～ ' + #temporals.format(highlight.weekEndDate, 'MM/dd')}"></span>
+                            <span th:text="${#temporals.format(highlight.yearMonth.atDay(1), 'yyyy年MM月')}"></span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <div>
@@ -201,6 +235,9 @@
                                     <span th:case="'C'" style="color: #9e9e9e;">C</span>
                                     <span th:case="'D'" style="color: #424242;">D</span>
                                     <span th:case="*" style="color: #ccc;">-</span>
+                                </div>
+                                <div th:if="${highlight.totalScore > 0}" style="font-size: 0.75em; opacity: 0.8; margin-top: 5px;">
+                                    <span th:text="${'スコア: ' + #numbers.formatDecimal(highlight.totalScore, 1, 1)}"></span>
                                 </div>
                             </div>
                         </div>

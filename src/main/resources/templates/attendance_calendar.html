@@ -56,7 +56,7 @@
                                 th:class="${day == null ? 'calendar-empty' :
                                           (day.hasAttendance() ? 'calendar-day ' + day.status : 'calendar-day')}"
                                 th:title="${day != null && day.hasAttendance() ?
-                                          '勤務時間: ' + #numbers.formatDecimal(day.workHours, 1, 1) + 'h' : ''}"
+                                          '実働時間: ' + #numbers.formatDecimal(day.workHours, 1, 1) + 'h' : ''}"
                                 th:attr="data-has-attendance=${day != null && day.hasAttendance()},
                                          data-attendance-id=${day != null && day.hasAttendance() ? day.attendance.id : ''},
                                          data-check-in=${day != null && day.hasAttendance() && day.attendance.checkIn != null ? #temporals.format(day.attendance.checkIn, 'yyyy-MM-dd HH:mm') : ''},
@@ -100,7 +100,7 @@
                         <span id="modalCheckOut" class="detail-value">-</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">勤務時間:</span>
+                        <span class="detail-label">実働時間:</span>
                         <span id="modalWorkHours" class="detail-value">-</span>
                     </div>
                 </div>

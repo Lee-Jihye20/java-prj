@@ -12,4 +12,7 @@ public interface AdminActionLogRepository extends JpaRepository<AdminActionLog, 
     List<AdminActionLog> findByAdmin_IdOrderByCreatedAtDesc(Long adminId, org.springframework.data.domain.Pageable pageable);
 
     List<AdminActionLog> findTop100ByAdmin_IdOrderByCreatedAtDesc(Long adminId);
+    
+    List<AdminActionLog> findByAdmin_IdAndCreatedAtBetweenOrderByCreatedAtDesc(
+            Long adminId, java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

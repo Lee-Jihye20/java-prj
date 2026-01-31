@@ -62,21 +62,34 @@
 
             <section class="card">
                 <h2>修正依頼フォーム</h2>
-                <form th:action="@{/attendance/fix-request}" method="post">
+                <form th:action="@{/attendance/fix-request}" method="post" th:attr="data-missing-checkout=${isMissingCheckout}">
                     <input type="hidden" name="attendanceId" th:value="${attendance.id}">
 
                     <div class="form-group">
                         <label for="requestType">修正項目</label>
                         <select id="requestType" name="requestType" required>
                             <option value="">選択してください</option>
-                            <option value="CHECK_IN">出勤時刻</option>
-                            <option value="CHECK_OUT">退勤時刻</option>
-                            <option value="BREAK_START">休憩開始時刻</option>
-                            <option value="BREAK_END">休憩終了時刻</option>
-                            <option value="LEAVE_START">中抜け開始時刻</option>
-                            <option value="LEAVE_END">中抜け終了時刻</option>
-                            <option value="LEAVE_TYPE">中抜けの扱い</option>
+                            <!-- 残業超過時は申請種別とフローを表示（打刻・休憩は開始・終了を一度に申請可能） -->
+                            <option th:if="${isOvertimeExcess}" value="CHECK_IN_AND_OUT">打刻ミス（出勤・退勤）</option>
+                                <option th:if="${isOvertimeExcess}" value="BREAK_START_AND_END">休憩未入力（開始・終了）</option>
+                                <option th:if="${isOvertimeExcess}" value="OVERTIME_APPLICATION">本当に残業</option>
+                            <!-- 退勤未打刻時は退勤時刻の打刻訂正のみ -->
+                            <option th:if="${isMissingCheckout}" value="CHECK_OUT" th:selected="${isMissingCheckout}">打刻ミス（退勤）→ 打刻訂正申請 → 承認 → 再計算</option>
+                            <!-- 通常の修正依頼 -->
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="CHECK_IN">出勤時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="CHECK_OUT">退勤時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="BREAK_START">休憩開始時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="BREAK_END">休憩終了時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="LEAVE_START">中抜け開始時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="LEAVE_END">中抜け終了時刻</option>
+                            <option th:if="${!isOvertimeExcess and !isMissingCheckout}" value="LEAVE_TYPE">中抜けの扱い</option>
                         </select>
+                        <p th:if="${isOvertimeExcess}" style="margin-top: 8px; font-size: 0.9em; color: #666;">
+                            打刻ミス・休憩未入力は承認後に再計算されます。本当に残業の場合は理由付き残業申請を選ぶと、承認後に残業がそのまま確定します。
+                        </p>
+                        <p th:if="${isMissingCheckout}" style="margin-top: 8px; font-size: 0.9em; color: #666;">
+                            退勤時刻を入力して申請すると、承認後に勤怠が再計算されます。
+                        </p>
                     </div>
 
                     <div class="form-group" id="leaveRecordGroup" style="display: none;">
@@ -91,8 +104,13 @@
                     </div>
 
                     <div class="form-group" id="newValueGroup">
-                        <label for="newValue">修正後の時刻</label>
+                        <label for="newValue" id="newValueLabel">修正後の時刻</label>
                         <input type="datetime-local" id="newValue" name="newValue"
+                               min="2000-01-01T00:00" max="2099-12-31T23:59">
+                    </div>
+                    <div class="form-group" id="newValue2Group" style="display: none;">
+                        <label for="newValue2" id="newValue2Label">修正後の時刻（2つ目）</label>
+                        <input type="datetime-local" id="newValue2" name="newValue2"
                                min="2000-01-01T00:00" max="2099-12-31T23:59">
                     </div>
 
@@ -120,14 +138,75 @@
         const requestTypeSelect = document.getElementById('requestType');
         const leaveRecordGroup = document.getElementById('leaveRecordGroup');
         const newValueGroup = document.getElementById('newValueGroup');
+        const newValue2Group = document.getElementById('newValue2Group');
         const newLeaveTypeGroup = document.getElementById('newLeaveTypeGroup');
         const newValueInput = document.getElementById('newValue');
+        const newValue2Input = document.getElementById('newValue2');
+        const newValueLabel = document.getElementById('newValueLabel');
+        const newValue2Label = document.getElementById('newValue2Label');
         const leaveRecordIdSelect = document.getElementById('leaveRecordId');
         const newLeaveTypeSelect = document.getElementById('newLeaveType');
 
         // 修正項目の変更に応じて表示を切り替え
         requestTypeSelect.addEventListener('change', function() {
             const value = this.value;
+            
+            // 理由付き残業申請の場合は時刻・中抜け入力なし
+            if (value === 'OVERTIME_APPLICATION') {
+                newValueGroup.style.display = 'none';
+                newValue2Group.style.display = 'none';
+                newValueInput.required = false;
+                newValueInput.value = '';
+                newValueInput.removeAttribute('name');
+                newValue2Input.required = false;
+                newValue2Input.value = '';
+                newValue2Input.removeAttribute('name');
+                leaveRecordGroup.style.display = 'none';
+                leaveRecordIdSelect.required = false;
+                leaveRecordIdSelect.value = '';
+                newLeaveTypeGroup.style.display = 'none';
+                newLeaveTypeSelect.required = false;
+                newLeaveTypeSelect.value = '';
+                return;
+            }
+            newValueInput.setAttribute('name', 'newValue');
+            
+            // 打刻ミス（出勤・退勤）または休憩未入力（開始・終了）の場合は2つの時刻入力
+            if (value === 'CHECK_IN_AND_OUT') {
+                newValueGroup.style.display = 'block';
+                newValue2Group.style.display = 'block';
+                newValueLabel.textContent = '出勤時刻';
+                newValue2Label.textContent = '退勤時刻';
+                newValueInput.required = true;
+                newValue2Input.required = true;
+                newValue2Input.setAttribute('name', 'newValue2');
+                leaveRecordGroup.style.display = 'none';
+                newLeaveTypeGroup.style.display = 'none';
+                newLeaveTypeSelect.required = false;
+                newLeaveTypeSelect.value = '';
+                return;
+            }
+            if (value === 'BREAK_START_AND_END') {
+                newValueGroup.style.display = 'block';
+                newValue2Group.style.display = 'block';
+                newValueLabel.textContent = '休憩開始時刻';
+                newValue2Label.textContent = '休憩終了時刻';
+                newValueInput.required = true;
+                newValue2Input.required = true;
+                newValue2Input.setAttribute('name', 'newValue2');
+                leaveRecordGroup.style.display = 'none';
+                newLeaveTypeGroup.style.display = 'none';
+                newLeaveTypeSelect.required = false;
+                newLeaveTypeSelect.value = '';
+                return;
+            }
+            newValue2Group.style.display = 'none';
+            newValue2Input.required = false;
+            newValue2Input.value = '';
+            newValue2Input.removeAttribute('name');
+            const isMissingCheckout = document.querySelector('form').dataset.missingCheckout === 'true';
+            newValueLabel.textContent = (value === 'CHECK_OUT' && isMissingCheckout) ? '退勤時刻' : '修正後の時刻';
+            newValue2Label.textContent = '修正後の時刻（2つ目）';
             
             // 中抜け関連の場合は中抜け選択を表示
             if (value === 'LEAVE_START' || value === 'LEAVE_END' || value === 'LEAVE_TYPE') {
@@ -161,16 +240,25 @@
             }
         });
 
+        // 退勤未打刻で開いた場合は初期表示を合わせる
+        if (document.querySelector('form').dataset.missingCheckout === 'true') {
+            requestTypeSelect.dispatchEvent(new Event('change'));
+        }
+
         // 日付入力のバリデーション
+        function validateYear(input) {
+            if (!input.value) return true;
+            const year = parseInt(input.value.substring(0, 4));
+            return year >= 2000 && year <= 2099;
+        }
         newValueInput.addEventListener('input', function(e) {
-            const value = e.target.value;
-            if (value) {
-                const year = parseInt(value.substring(0, 4));
-                if (year < 2000 || year > 2099) {
-                    e.target.setCustomValidity('年は2000年から2099年の範囲で入力してください');
-                } else {
-                    e.target.setCustomValidity('');
-                }
+            if (e.target.value) {
+                e.target.setCustomValidity(validateYear(e.target) ? '' : '年は2000年から2099年の範囲で入力してください');
+            }
+        });
+        newValue2Input.addEventListener('input', function(e) {
+            if (e.target.value) {
+                e.target.setCustomValidity(validateYear(e.target) ? '' : '年は2000年から2099年の範囲で入力してください');
             }
         });
 
@@ -178,14 +266,36 @@
         document.querySelector('form').addEventListener('submit', function(e) {
             const requestType = requestTypeSelect.value;
             
-            // 時刻の修正依頼の場合
-            if (requestType !== 'LEAVE_TYPE' && newValueInput.value) {
-                const year = parseInt(newValueInput.value.substring(0, 4));
-                if (year < 2000 || year > 2099) {
+            // 理由付き残業申請の場合は newValue / newValue2 を送信しない
+            if (requestType === 'OVERTIME_APPLICATION') {
+                newValueInput.removeAttribute('name');
+                newValue2Input.removeAttribute('name');
+                return true;
+            }
+            newValueInput.setAttribute('name', 'newValue');
+            
+            // 打刻ミス・休憩未入力（2値）の場合は両方必須
+            if (requestType === 'CHECK_IN_AND_OUT' || requestType === 'BREAK_START_AND_END') {
+                if (!newValueInput.value || !newValue2Input.value) {
+                    e.preventDefault();
+                    alert('開始・終了の両方を入力してください');
+                    return false;
+                }
+                if (!validateYear(newValueInput) || !validateYear(newValue2Input)) {
                     e.preventDefault();
                     alert('年は2000年から2099年の範囲で入力してください');
                     return false;
                 }
+                newValue2Input.setAttribute('name', 'newValue2');
+                return true;
+            }
+            newValue2Input.removeAttribute('name');
+            
+            // 時刻の修正依頼の場合
+            if (requestType !== 'LEAVE_TYPE' && newValueInput.value && !validateYear(newValueInput)) {
+                e.preventDefault();
+                alert('年は2000年から2099年の範囲で入力してください');
+                return false;
             }
 
             // 中抜け関連の場合は中抜け選択が必須

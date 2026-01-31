@@ -14,6 +14,10 @@ public interface AnomalyApprovalRepository extends JpaRepository<AnomalyApproval
 
     List<AnomalyApproval> findByAttendance_IdAndAnomalyType(Long attendanceId, String anomalyType);
 
+    Optional<AnomalyApproval> findFirstByAttendance_IdAndAnomalyType(Long attendanceId, String anomalyType);
+
+    boolean existsByAttendance_IdAndAnomalyTypeAndApprovedTrue(Long attendanceId, String anomalyType);
+
     List<AnomalyApproval> findByApproved(Boolean approved);
 
     List<AnomalyApproval> findByAttendance_User_CompanyId(Long companyId);

@@ -2,10 +2,8 @@ package com.example.kintai.service;
 
 import com.example.kintai.dto.MonthlyReportDTO;
 import com.example.kintai.entity.Attendance;
-import com.example.kintai.entity.BreakRecord;
 import com.example.kintai.entity.User;
 import com.example.kintai.repository.AttendanceRepository;
-import com.example.kintai.repository.BreakRecordRepository;
 import com.example.kintai.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,7 +24,7 @@ public class MonthlyReportService {
     private UserRepository userRepository;
 
     @Autowired
-    private BreakRecordRepository breakRecordRepository;
+    private BreakRecordService breakRecordService;
 
     /**
      * 月次レポートを生成
@@ -63,13 +61,7 @@ public class MonthlyReportService {
 
             if (attendance.getCheckOut() != null) {
                 workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
-
-                // 休憩時間を引く（BreakRecordを使用）
-                List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
-                breakMinutes = breakRecords.stream()
-                        .filter(br -> br.getBreakEnd() != null)
-                        .mapToLong(BreakRecord::getBreakMinutes)
-                        .sum();
+                breakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
                 workMinutes -= breakMinutes;
 
                 // 残業時間を計算（8時間 = 480分を超えた分）
@@ -149,13 +141,7 @@ public class MonthlyReportService {
 
             if (attendance.getCheckOut() != null) {
                 workMinutes = Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
-
-                // 休憩時間を引く（BreakRecordを使用）
-                List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
-                breakMinutes = breakRecords.stream()
-                        .filter(br -> br.getBreakEnd() != null)
-                        .mapToLong(BreakRecord::getBreakMinutes)
-                        .sum();
+                breakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
                 workMinutes -= breakMinutes;
 
                 if (workMinutes > 480) {

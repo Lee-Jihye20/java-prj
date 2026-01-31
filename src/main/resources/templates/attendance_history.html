@@ -38,12 +38,12 @@
                                 <th>日付</th>
                                 <th>出勤</th>
                                 <th>退勤</th>
+                                <th>実働時間</th>
                                 <th>休憩開始</th>
                                 <th>休憩終了</th>
                                 <th>中抜け開始</th>
                                 <th>中抜け終了</th>
                                 <th>中抜けの扱い</th>
-                                <th>ステータス</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -52,8 +52,25 @@
                                 <td th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'yyyy-MM-dd') : '-'}"></td>
                                 <td th:text="${attendance.checkIn != null ? #temporals.format(attendance.checkIn, 'HH:mm') : '-'}"></td>
                                 <td th:text="${attendance.checkOut != null ? #temporals.format(attendance.checkOut, 'HH:mm') : '-'}"></td>
-                                <td th:text="${attendance.breakStart != null ? #temporals.format(attendance.breakStart, 'HH:mm') : '-'}"></td>
-                                <td th:text="${attendance.breakEnd != null ? #temporals.format(attendance.breakEnd, 'HH:mm') : '-'}"></td>
+                                <td th:text="${(workHoursMap != null and workHoursMap.containsKey(attendance.id) and workHoursMap.get(attendance.id) != null) ? (#numbers.formatDecimal(workHoursMap.get(attendance.id), 1, 1) + 'h') : '-'}"></td>
+                                <td>
+                                    <span th:if="${breakRecordsMap != null and breakRecordsMap.containsKey(attendance.id) and !breakRecordsMap.get(attendance.id).isEmpty()}">
+                                        <div th:each="breakRecord : ${breakRecordsMap.get(attendance.id)}" 
+                                             style="margin-bottom: 3px;">
+                                            <span th:text="${breakRecord.breakStart != null ? #temporals.format(breakRecord.breakStart, 'HH:mm') : '-'}"></span>
+                                        </div>
+                                    </span>
+                                    <span th:if="${breakRecordsMap == null or !breakRecordsMap.containsKey(attendance.id) or breakRecordsMap.get(attendance.id).isEmpty()}">-</span>
+                                </td>
+                                <td>
+                                    <span th:if="${breakRecordsMap != null and breakRecordsMap.containsKey(attendance.id) and !breakRecordsMap.get(attendance.id).isEmpty()}">
+                                        <div th:each="breakRecord : ${breakRecordsMap.get(attendance.id)}" 
+                                             style="margin-bottom: 3px;">
+                                            <span th:text="${breakRecord.breakEnd != null ? #temporals.format(breakRecord.breakEnd, 'HH:mm') : '-'}"></span>
+                                        </div>
+                                    </span>
+                                    <span th:if="${breakRecordsMap == null or !breakRecordsMap.containsKey(attendance.id) or breakRecordsMap.get(attendance.id).isEmpty()}">-</span>
+                                </td>
                                 <td>
                                     <span th:if="${leaveRecordsMap != null and leaveRecordsMap.containsKey(attendance.id) and !leaveRecordsMap.get(attendance.id).isEmpty()}">
                                         <div th:each="leaveRecord : ${leaveRecordsMap.get(attendance.id)}" 
@@ -81,7 +98,6 @@
                                     </span>
                                     <span th:if="${leaveRecordsMap == null or !leaveRecordsMap.containsKey(attendance.id) or leaveRecordsMap.get(attendance.id).isEmpty()}">-</span>
                                 </td>
-                                <td th:text="${attendance.statusInJapanese}"></td>
                                 <td>
                                     <a th:href="@{/attendance/fix-request/{id}(id=${attendance.id})}" class="btn-link">修正依頼</a>
                                 </td>

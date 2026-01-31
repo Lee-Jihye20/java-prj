@@ -3,18 +3,17 @@ package com.example.kintai.service;
 import com.example.kintai.entity.Attendance;
 import com.example.kintai.entity.BreakRecord;
 import com.example.kintai.entity.CompanySettings;
-import com.example.kintai.entity.LeaveRecord;
 import com.example.kintai.entity.User;
 import com.example.kintai.repository.AttendanceRepository;
 import com.example.kintai.repository.BreakRecordRepository;
 import com.example.kintai.repository.CompanySettingsRepository;
-import com.example.kintai.repository.LeaveRecordRepository;
 import com.example.kintai.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +42,13 @@ public class AttendanceService {
     private BreakRecordRepository breakRecordRepository;
 
     @Autowired
-    private LeaveRecordRepository leaveRecordRepository;
+    private LeaveRecordService leaveRecordService;
+
+    @Autowired
+    private OvertimeExcessService overtimeExcessService;
+
+    @Autowired
+    private BreakRecordService breakRecordService;
 
     /**
      * 出勤打刻
@@ -116,21 +121,14 @@ public class AttendanceService {
                 savedAttendance.getCheckOut().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")));
         slackNotificationService.sendAttendanceNotification(message, user.getCompany().getId());
 
-        // 残業検知: 勤務時間を計算して1分（テスト用）を超えている場合は通知
-        long workMinutes = Duration.between(savedAttendance.getCheckIn(), savedAttendance.getCheckOut()).toMinutes();
-        
-        // 休憩時間を引く（BreakRecordを使用）
-        List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(savedAttendance.getId());
-        long totalBreakMinutes = breakRecords.stream()
-                .filter(br -> br.getBreakEnd() != null)
-                .mapToLong(BreakRecord::getBreakMinutes)
-                .sum();
-        workMinutes -= totalBreakMinutes;
-        
-        // 1分（テスト用）を超えている場合は残業検知として通知
-        if (workMinutes > 1) { // テスト用: 1分を超えたら残業検知（本番では480分に戻す）
+        // 残業検知: 残業超過の計算・判定は OvertimeExcessService に集約
+        if (overtimeExcessService.isOvertimeExcess(savedAttendance)) {
+            long workMinutes = Duration.between(savedAttendance.getCheckIn(), savedAttendance.getCheckOut()).toMinutes();
+            long totalBreakMinutes = breakRecordService.getTotalBreakMinutes(savedAttendance);
+            workMinutes -= totalBreakMinutes;
+            long threshold = overtimeExcessService.getThresholdMinutes();
             double workHours = workMinutes / 60.0;
-            double overtimeHours = (workMinutes - 1) / 60.0; // テスト用: 1分を超えた分が残業時間
+            double overtimeHours = (workMinutes - threshold) / 60.0;
             
             // Slack通知（管理者チャンネル）- embed形式
             Map<String, Object> attachment = new HashMap<>();
@@ -233,8 +231,7 @@ public class AttendanceService {
         }
 
         // 中抜け中でないことを確認（休憩と中抜けは同時に進行できない）
-        List<LeaveRecord> activeLeaves = leaveRecordRepository.findByAttendance_IdAndLeaveEndIsNull(attendance.getId());
-        if (!activeLeaves.isEmpty()) {
+        if (leaveRecordService.hasActiveLeave(attendance.getId())) {
             throw new IllegalStateException("中抜け中です。中抜けを終了してから休憩を開始してください");
         }
 
@@ -333,117 +330,10 @@ public class AttendanceService {
     }
 
     /**
-     * 中抜け開始打刻
-     */
-    @Transactional
-    public Attendance startLeave(Long userId) {
-        Optional<User> userOptional = userRepository.findById(userId);
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("User not found.");
-        }
-        User user = userOptional.get();
-
-        // 企業設定を取得
-        Optional<CompanySettings> settingsOptional = companySettingsRepository.findByCompanyId(user.getCompany().getId());
-        CompanySettings settings = settingsOptional.orElse(new CompanySettings());
-        String leaveDefaultType = settings.getLeaveDefaultType() != null ? settings.getLeaveDefaultType() : "DEDUCTION";
-
-        // 今日の出勤記録を取得
-        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
-        LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
-        List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
-                userId, startOfToday, endOfToday);
-
-        if (todayAttendances.isEmpty()) {
-            throw new IllegalStateException("本日の出勤打刻がされていません");
-        }
-
-        Attendance attendance = todayAttendances.get(0);
-        if (attendance.getCheckOut() != null) {
-            throw new IllegalStateException("既に退勤済みです");
-        }
-
-        // 既に中抜け中の記録があるかチェック
-        List<LeaveRecord> activeLeaves = leaveRecordRepository.findByAttendance_IdAndLeaveEndIsNull(attendance.getId());
-        if (!activeLeaves.isEmpty()) {
-            throw new IllegalStateException("既に中抜け中です");
-        }
-
-        // 休憩中でないことを確認（休憩と中抜けは同時に進行できない）
-        List<BreakRecord> activeBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(attendance.getId());
-        if (!activeBreaks.isEmpty()) {
-            throw new IllegalStateException("休憩中です。休憩を終了してから中抜けを開始してください");
-        }
-
-        // 中抜け開始時刻を決定
-        LocalDateTime leaveStartTime = LocalDateTime.now();
-
-        // LeaveRecordを作成
-        LeaveRecord leaveRecord = new LeaveRecord();
-        leaveRecord.setAttendance(attendance);
-        leaveRecord.setLeaveStart(leaveStartTime);
-        leaveRecord.setLeaveType(leaveDefaultType); // デフォルト設定を使用
-        leaveRecordRepository.save(leaveRecord);
-
-        return attendanceRepository.save(attendance);
-    }
-
-    /**
-     * 中抜け終了打刻
-     */
-    @Transactional
-    public Attendance endLeave(Long userId) {
-        Optional<User> userOptional = userRepository.findById(userId);
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("User not found.");
-        }
-        User user = userOptional.get();
-
-        // 今日の出勤記録を取得
-        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
-        LocalDateTime endOfToday = LocalDateTime.now().toLocalDate().atTime(23, 59, 59);
-        List<Attendance> todayAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
-                userId, startOfToday, endOfToday);
-
-        if (todayAttendances.isEmpty()) {
-            throw new IllegalStateException("本日の出勤打刻がされていません");
-        }
-
-        Attendance attendance = todayAttendances.get(0);
-        if (attendance.getCheckOut() != null) {
-            throw new IllegalStateException("既に退勤済みです");
-        }
-
-        // 中抜け中の記録を取得
-        List<LeaveRecord> activeLeaves = leaveRecordRepository.findByAttendance_IdAndLeaveEndIsNull(attendance.getId());
-        if (activeLeaves.isEmpty()) {
-            throw new IllegalStateException("中抜け開始が打刻されていません");
-        }
-
-        // 最新の中抜け記録を取得
-        LeaveRecord leaveRecord = activeLeaves.get(0);
-
-        // 中抜け終了時刻を決定
-        LocalDateTime leaveEndTime = LocalDateTime.now();
-
-        leaveRecord.setLeaveEnd(leaveEndTime);
-        leaveRecordRepository.save(leaveRecord);
-
-        return attendanceRepository.save(attendance);
-    }
-
-    /**
      * ユーザーの勤怠履歴を取得
      */
     public List<Attendance> getAttendanceHistory(Long userId) {
         return attendanceRepository.findByUser_IdOrderByCheckInDesc(userId);
-    }
-
-    /**
-     * 勤怠IDで中抜け記録を取得
-     */
-    public List<LeaveRecord> getLeaveRecordsByAttendanceId(Long attendanceId) {
-        return leaveRecordRepository.findByAttendance_IdOrderByLeaveStartAsc(attendanceId);
     }
 
     /**
@@ -478,8 +368,7 @@ public class AttendanceService {
             Attendance attendance = todayAttendances.get(0);
             List<BreakRecord> activeBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(attendance.getId());
             isOnBreak = !activeBreaks.isEmpty();
-            List<LeaveRecord> activeLeaves = leaveRecordRepository.findByAttendance_IdAndLeaveEndIsNull(attendance.getId());
-            isOnLeave = !activeLeaves.isEmpty();
+            isOnLeave = leaveRecordService.hasActiveLeave(attendance.getId());
         }
 
         return new TodayAttendanceStatus(hasCheckedIn, hasCheckedOut, isOnBreak, isOnLeave);
@@ -533,33 +422,14 @@ public class AttendanceService {
     }
 
     /**
-     * 異常検知: 残業時間が1分を超えているかチェック (企業ごと)
-     * 注意: テスト用に1分に設定しています。本番環境では8時間（480分）に戻してください。
-     */
-    public List<Attendance> detectOvertime(Long companyId) {
-        List<Attendance> allAttendances = findAllByCompanyId(companyId);
-        return allAttendances.stream()
-                .filter(a -> a.getCheckOut() != null)
-                .filter(a -> {
-                    long workMinutes = Duration.between(a.getCheckIn(), a.getCheckOut()).toMinutes();
-                    // 休憩時間を引く（BreakRecordを使用）
-                    List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(a.getId());
-                    long totalBreakMinutes = breakRecords.stream()
-                            .filter(br -> br.getBreakEnd() != null)
-                            .mapToLong(BreakRecord::getBreakMinutes)
-                            .sum();
-                    workMinutes -= totalBreakMinutes;
-                    return workMinutes > 1; // テスト用: 1分を超えたら異常検知（本番では480分に戻す）
-                })
-                .toList();
-    }
-
-    /**
-     * 異常検知: 打刻漏れ(退勤未打刻)を検出 (企業ごと)
+     * 異常検知: 打刻漏れ(退勤未打刻)を検出 (企業ごと)。
+     * 当日の勤怠は除外（まだ勤務中の可能性があるため）。過去日で退勤未打刻のもののみ検知。
      */
     public List<Attendance> detectMissingCheckOut(Long companyId) {
+        LocalDate today = LocalDate.now();
         return findAllByCompanyId(companyId).stream()
-                .filter(a -> a.getCheckOut() == null && a.getCheckIn() != null)
+                .filter(a -> a.getCheckOut() == null && a.getCheckIn() != null
+                        && a.getCheckIn().toLocalDate().isBefore(today))
                 .toList();
     }
 }

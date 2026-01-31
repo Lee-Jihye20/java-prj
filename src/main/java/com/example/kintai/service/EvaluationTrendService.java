@@ -1,8 +1,7 @@
 package com.example.kintai.service;
 
 import com.example.kintai.dto.EvaluationTrendDTO;
-import com.example.kintai.entity.*;
-import com.example.kintai.repository.*;
+import com.example.kintai.repository.FactBasedEvaluationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,8 +10,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class EvaluationTrendService {
@@ -20,14 +17,8 @@ public class EvaluationTrendService {
     @Autowired
     private FactBasedEvaluationRepository factBasedEvaluationRepository;
 
-    @Autowired
-    private SelfEvaluationRepository selfEvaluationRepository;
-
-    @Autowired
-    private WeeklyEvaluationRepository weeklyEvaluationRepository;
-
     /**
-     * 従業員の月別評価トレンドを取得
+     * 従業員の月別評価トレンドを取得（事実ベース評価のみ）
      */
     @Transactional(readOnly = true)
     public List<EvaluationTrendDTO> getEmployeeTrend(Long employeeId, int months) {
@@ -50,35 +41,6 @@ public class EvaluationTrendService {
                         trend.setConsecutiveWorkDays(eval.getConsecutiveWorkDays());
                         trend.setOvertimeAccuracy(eval.getOvertimeAccuracy());
                     });
-
-            // 自己評価を取得
-            selfEvaluationRepository.findByEmployeeIdAndYearMonth(employeeId, monthStart)
-                    .ifPresent(self -> trend.setSelfRating(self.getRating()));
-
-            // 管理者評価を取得（その月の週次評価から平均を計算）
-            List<WeeklyEvaluation> weeklyEvals = weeklyEvaluationRepository
-                    .findByEmployeeIdOrderByWeekStartDateDesc(employeeId);
-            
-            List<WeeklyEvaluation> monthEvals = weeklyEvals.stream()
-                    .filter(we -> {
-                        LocalDate weekStart = we.getWeekStartDate();
-                        return weekStart.getYear() == targetMonth.getYear() &&
-                               weekStart.getMonth() == targetMonth.getMonth();
-                    })
-                    .toList();
-
-            if (!monthEvals.isEmpty()) {
-                // 週次評価の平均を計算（簡易版：最も多い評価を使用）
-                Map<String, Long> ratingCount = monthEvals.stream()
-                        .collect(Collectors.groupingBy(WeeklyEvaluation::getRating, Collectors.counting()));
-                
-                String mostCommonRating = ratingCount.entrySet().stream()
-                        .max(Map.Entry.comparingByValue())
-                        .map(Map.Entry::getKey)
-                        .orElse(null);
-                
-                trend.setAdminRating(mostCommonRating);
-            }
 
             trends.add(trend);
         }

@@ -26,6 +26,9 @@ public class FixRequest {
     @Column(name = "new_value")
     private LocalDateTime newValue;
 
+    @Column(name = "new_value_2")
+    private LocalDateTime newValue2;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "leave_record_id")
     private com.example.kintai.entity.LeaveRecord leaveRecord;
@@ -97,6 +100,14 @@ public class FixRequest {
         this.newValue = newValue;
     }
 
+    public LocalDateTime getNewValue2() {
+        return newValue2;
+    }
+
+    public void setNewValue2(LocalDateTime newValue2) {
+        this.newValue2 = newValue2;
+    }
+
     public String getReason() {
         return reason;
     }
@@ -162,6 +173,39 @@ public class FixRequest {
 
     public void setNewLeaveType(String newLeaveType) {
         this.newLeaveType = newLeaveType;
+    }
+
+    /**
+     * 修正項目を日本語で取得
+     */
+    public String getRequestTypeInJapanese() {
+        if (requestType == null) {
+            return "不明";
+        }
+        switch (requestType) {
+            case "CHECK_IN":
+                return "出勤時刻";
+            case "CHECK_OUT":
+                return "退勤時刻";
+            case "BREAK_START":
+                return "休憩開始時刻";
+            case "BREAK_END":
+                return "休憩終了時刻";
+            case "LEAVE_START":
+                return "中抜け開始時刻";
+            case "LEAVE_END":
+                return "中抜け終了時刻";
+            case "LEAVE_TYPE":
+                return "中抜けの扱い";
+            case "OVERTIME_APPLICATION":
+                return "理由付き残業申請";
+            case "CHECK_IN_AND_OUT":
+                return "打刻訂正（出勤・退勤）";
+            case "BREAK_START_AND_END":
+                return "休憩補正（開始・終了）";
+            default:
+                return requestType;
+        }
     }
 
     /**

@@ -37,6 +37,23 @@
                         <a th:href="@{/admin/users/create}" class="btn-primary">新規社員アカウント作成</a>
                     </div>
                 </div>
+                <!-- 検索フォーム -->
+                <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+                    <form method="get" th:action="@{/admin/users}" style="display: flex; gap: 10px; align-items: center;">
+                        <label for="searchInput" style="font-weight: 600; white-space: nowrap;">名前で検索:</label>
+                        <input type="text" 
+                               id="searchInput" 
+                               name="search" 
+                               th:value="${search}"
+                               placeholder="社員名を入力..."
+                               style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <button type="submit" class="btn-primary" style="padding: 8px 20px;">検索</button>
+                        <a th:if="${search != null and !search.isEmpty()}" 
+                           th:href="@{/admin/users}" 
+                           class="btn-secondary" 
+                           style="padding: 8px 20px;">クリア</a>
+                    </form>
+                </div>
                 <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
                     <strong>企業コード:</strong> <span th:text="${companyCode}"></span>
                     <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #666;">
@@ -84,22 +101,61 @@
                                         </button>
                                     </div>
                                 </td>
-                                <td th:text="${user.slackUserId != null ? user.slackUserId : '-'}"></td>
                                 <td>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-                                        <a th:href="@{/admin/users/{uid}/calendar(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">カレンダー</a>
-                                        <button type="button" class="btn-secondary work-settings-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span th:text="${user.slackUserId != null ? user.slackUserId : '-'}"></span>
+                                        <button type="button" 
+                                                class="btn-secondary slack-id-settings-btn" 
+                                                style="padding: 3px 8px; font-size: 0.8em;"
                                                 th:data-user-id="${user.id}"
                                                 th:data-username="${user.username}"
-                                                th:data-work-type="${user.workType != null ? user.workType : 'FULLTIME'}"
-                                                th:data-start-time="${user.startTime != null ? #temporals.format(user.startTime, 'HH:mm') : '09:00'}"
-                                                th:data-core-time-start="${user.coreTimeStart != null ? #temporals.format(user.coreTimeStart, 'HH:mm') : '10:00'}"
-                                                th:data-core-time-end="${user.coreTimeEnd != null ? #temporals.format(user.coreTimeEnd, 'HH:mm') : '15:00'}">勤務設定</button>
-                                        <button type="button" class="btn-secondary export-daily-btn" style="padding: 5px 10px; font-size: 0.85em;"
-                                                th:data-user-id="${user.id}">日別エクスポート</button>
-                                        <button type="button" class="btn-secondary export-monthly-btn" style="padding: 5px 10px; font-size: 0.85em;"
-                                                th:data-user-id="${user.id}">月別エクスポート</button>
-                                        <a th:if="${user.role == 'ADMIN'}" th:href="@{/admin/users/{uid}/actions(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">📝 ログ</a>
+                                                th:data-slack-user-id="${user.slackUserId != null ? user.slackUserId : ''}">
+                                            SlackID設定
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                                        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                                            <a th:if="${user.role != 'ADMIN'}" th:href="@{/admin/users/{uid}/calendar(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">カレンダー</a>
+                                            <button th:if="${user.role != 'ADMIN'}" type="button" class="btn-secondary work-settings-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                    th:data-user-id="${user.id}"
+                                                    th:data-username="${user.username}"
+                                                    th:data-work-type="${user.workType != null ? user.workType : 'FULLTIME'}"
+                                                    th:data-start-time="${user.startTime != null ? #temporals.format(user.startTime, 'HH:mm') : '09:00'}"
+                                                    th:data-core-time-start="${user.coreTimeStart != null ? #temporals.format(user.coreTimeStart, 'HH:mm') : '10:00'}"
+                                                    th:data-core-time-end="${user.coreTimeEnd != null ? #temporals.format(user.coreTimeEnd, 'HH:mm') : '15:00'}">勤務設定</button>
+                                            <button th:if="${user.role != 'ADMIN'}" type="button" class="btn-secondary export-daily-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                    th:data-user-id="${user.id}">日別エクスポート</button>
+                                            <button th:if="${user.role != 'ADMIN'}" type="button" class="btn-secondary export-monthly-btn" style="padding: 5px 10px; font-size: 0.85em;"
+                                                    th:data-user-id="${user.id}">月別エクスポート</button>
+                                            <a th:if="${user.role == 'ADMIN'}" th:href="@{/admin/users/{uid}/actions(uid=${user.id})}" class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;">📝 ログ</a>
+                                        </div>
+                                        <!-- 当月の勤務統計 -->
+                                        <div th:if="${user.role != 'ADMIN' and userMonthlyStats != null and userMonthlyStats.containsKey(user.id)}" 
+                                             style="padding: 10px; background-color: #f8f9fa; border-radius: 4px; border-left: 3px solid #3498db; font-size: 0.85em;">
+                                            <div style="font-weight: 600; margin-bottom: 5px; color: #2c3e50;">
+                                                <span th:text="${currentYear} + '年' + ${currentMonth} + '月'"></span>の勤務統計
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; color: #555;">
+                                                <div>
+                                                    <span style="color: #7f8c8d;">勤務日数:</span>
+                                                    <strong th:text="${userMonthlyStats.get(user.id).workDays + '日'}"></strong>
+                                                </div>
+                                                <div>
+                                                    <span style="color: #7f8c8d;">勤務時間:</span>
+                                                    <strong th:text="${#numbers.formatDecimal(userMonthlyStats.get(user.id).totalWorkMinutes / 60.0, 1, 1) + 'h'}"></strong>
+                                                </div>
+                                                <div>
+                                                    <span style="color: #7f8c8d;">休憩時間:</span>
+                                                    <strong th:text="${#numbers.formatDecimal(userMonthlyStats.get(user.id).totalBreakMinutes / 60.0, 1, 1) + 'h'}"></strong>
+                                                </div>
+                                                <div>
+                                                    <span style="color: #7f8c8d;">残業時間:</span>
+                                                    <strong style="color: #e74c3c;" th:text="${#numbers.formatDecimal(userMonthlyStats.get(user.id).totalOvertimeMinutes / 60.0, 1, 1) + 'h'}"></strong>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -288,6 +344,53 @@
         if (exportDailyModal) exportDailyModal.addEventListener('click', function(e) { if (e.target === this) closeExportDailyModal(); });
         const exportMonthlyModal = document.getElementById('exportMonthlyModal');
         if (exportMonthlyModal) exportMonthlyModal.addEventListener('click', function(e) { if (e.target === this) closeExportMonthlyModal(); });
+        
+        // SlackID設定ボタンのクリックイベント（イベント委譲）
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.slack-id-settings-btn');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = btn.getAttribute('data-user-id');
+                const username = btn.getAttribute('data-username');
+                const slackUserId = btn.getAttribute('data-slack-user-id') || '';
+                showSlackIdSettingsModal(userId, username, slackUserId);
+            }
+        });
+        
+        function showSlackIdSettingsModal(userId, username, slackUserId) {
+            const modal = document.getElementById('slackIdSettingsModal');
+            const userIdInput = document.getElementById('slackIdSettingsUserId');
+            const usernameElement = document.getElementById('slackIdSettingsUsername');
+            const slackUserIdInput = document.getElementById('slackIdSettingsSlackUserId');
+            const form = document.getElementById('slackIdSettingsForm');
+            
+            if (!modal || !userIdInput || !usernameElement || !slackUserIdInput || !form) {
+                console.error('SlackID設定モーダルの要素が見つかりません');
+                return;
+            }
+            
+            userIdInput.value = userId;
+            usernameElement.textContent = username;
+            slackUserIdInput.value = slackUserId;
+            form.action = '/admin/users/' + userId + '/slack-id';
+            modal.style.display = 'block';
+        }
+        
+        function closeSlackIdSettingsModal() {
+            const modal = document.getElementById('slackIdSettingsModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        // SlackID設定モーダル外をクリックで閉じる
+        const slackIdSettingsModal = document.getElementById('slackIdSettingsModal');
+        if (slackIdSettingsModal) {
+            slackIdSettingsModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeSlackIdSettingsModal();
+                }
+            });
+        }
     </script>
 
     <!-- ロール変更モーダル -->
@@ -422,6 +525,32 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="button" onclick="closeExportMonthlyModal()" class="btn-secondary">キャンセル</button>
                     <button type="submit" class="btn-primary">ダウンロード</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SlackID設定モーダル -->
+    <div id="slackIdSettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; min-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0;">SlackID設定</h2>
+            <p>ユーザー: <strong id="slackIdSettingsUsername"></strong></p>
+            <form id="slackIdSettingsForm" method="post" style="display: flex; flex-direction: column; gap: 20px;">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" id="slackIdSettingsUserId" name="userId">
+                <div>
+                    <label for="slackIdSettingsSlackUserId" style="display: block; margin-bottom: 10px; font-weight: 600;">Slack User ID:</label>
+                    <input type="text" 
+                           id="slackIdSettingsSlackUserId" 
+                           name="slackUserId" 
+                           class="form-control" 
+                           style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                           placeholder="例: U01234567">
+                    <small style="color: #666; font-size: 0.85em;">SlackのユーザーIDを入力してください。未設定の場合は空欄にしてください。</small>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" onclick="closeSlackIdSettingsModal()" class="btn-secondary" style="padding: 8px 20px;">キャンセル</button>
+                    <button type="submit" class="btn-primary" style="padding: 8px 20px;">保存</button>
                 </div>
             </form>
         </div>

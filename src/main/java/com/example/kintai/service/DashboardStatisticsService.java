@@ -4,7 +4,6 @@ import com.example.kintai.dto.DashboardStatisticsDTO;
 import com.example.kintai.entity.Attendance;
 import com.example.kintai.entity.BreakRecord;
 import com.example.kintai.repository.AttendanceRepository;
-import com.example.kintai.repository.BreakRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,7 @@ public class DashboardStatisticsService {
     private AttendanceRepository attendanceRepository;
 
     @Autowired
-    private BreakRecordRepository breakRecordRepository;
+    private BreakRecordService breakRecordService;
 
     /**
      * ダッシュボード統計情報を取得
@@ -45,8 +44,8 @@ public class DashboardStatisticsService {
             if (todayAttendance.getCheckOut() != null) {
                 stats.setCurrentStatus("退勤済み");
             } else {
-                // BreakRecordを使用して休憩中かチェック
-                List<BreakRecord> activeBreaks = breakRecordRepository.findByAttendance_IdAndBreakEndIsNull(todayAttendance.getId());
+                // 休憩中かチェック（BreakRecordService に集約）
+                List<BreakRecord> activeBreaks = breakRecordService.getActiveBreaksByAttendanceId(todayAttendance.getId());
                 if (!activeBreaks.isEmpty()) {
                     stats.setCurrentStatus("休憩中");
                 } else if (todayAttendance.getCheckIn() != null) {
@@ -75,17 +74,19 @@ public class DashboardStatisticsService {
         List<Attendance> monthAttendances = attendanceRepository.findByUser_IdAndCheckInBetweenOrderByCheckInDesc(
                 userId, startOfMonth.atStartOfDay(), endOfMonth.atTime(23, 59, 59));
 
-        double monthWorkHours = 0;
-        double monthOvertimeHours = 0;
+        // フルタイム: 通常勤務は1日8時間まで、残業は8時間を超えてから計算
+        final double fullTimeDailyHours = 8.0;
+        double monthWorkHours = 0;   // 通常勤務時間（1日あたり最大8時間）
+        double monthOvertimeHours = 0; // 残業時間（8時間を超えた分のみ）
         int workDays = monthAttendances.size();
 
         for (Attendance attendance : monthAttendances) {
             double workHours = calculateWorkHours(attendance);
-            monthWorkHours += workHours;
-
-            // 残業時間（8時間超過分）
-            if (workHours > 8) {
-                monthOvertimeHours += (workHours - 8);
+            // 通常勤務: 1日8時間まで
+            monthWorkHours += Math.min(workHours, fullTimeDailyHours);
+            // 残業: 8時間を超えた分のみ
+            if (workHours > fullTimeDailyHours) {
+                monthOvertimeHours += (workHours - fullTimeDailyHours);
             }
         }
 
@@ -110,15 +111,7 @@ public class DashboardStatisticsService {
         }
 
         long workMinutes = Duration.between(attendance.getCheckIn(), checkOut).toMinutes();
-
-        // 休憩時間を引く（BreakRecordを使用）
-        List<BreakRecord> breakRecords = breakRecordRepository.findByAttendance_IdOrderByBreakStartAsc(attendance.getId());
-        long totalBreakMinutes = breakRecords.stream()
-                .filter(br -> br.getBreakEnd() != null)
-                .mapToLong(BreakRecord::getBreakMinutes)
-                .sum();
-        workMinutes -= totalBreakMinutes;
-
+        workMinutes -= breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
         return workMinutes / 60.0;
     }
 }

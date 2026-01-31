@@ -139,75 +139,18 @@
                 </div>
             </section>
 
-            <!-- 自己評価と管理者評価の比較 -->
+            <!-- 評価の説明 -->
             <section class="card">
-                <h2>⚖️ 評価比較</h2>
-                <div class="rating-comparison">
-                    <div class="rating-card">
-                        <h3>自己評価</h3>
-                        <div th:if="${selfEvaluation != null}">
-                            <span th:switch="${selfEvaluation.rating}" class="rating-badge">
-                                <span th:case="'S'" class="rating-s">S</span>
-                                <span th:case="'A'" class="rating-a">A</span>
-                                <span th:case="'B'" class="rating-b">B</span>
-                                <span th:case="'C'" class="rating-c">C</span>
-                                <span th:case="'D'" class="rating-d">D</span>
-                            </span>
-                            <p th:if="${selfEvaluation.comment != null}" style="margin-top: 10px; color: #666;" th:text="${selfEvaluation.comment}"></p>
-                        </div>
-                        <div th:if="${selfEvaluation == null}">
-                            <p style="color: #999;">自己評価が未入力です</p>
-                        </div>
-                    </div>
-                    <div class="rating-card">
-                        <h3>管理者評価</h3>
-                        <div th:if="${trends != null and !trends.isEmpty() and trends[0].adminRating != null}">
-                            <span th:switch="${trends[0].adminRating}" class="rating-badge">
-                                <span th:case="'S'" class="rating-s">S</span>
-                                <span th:case="'A'" class="rating-a">A</span>
-                                <span th:case="'B'" class="rating-b">B</span>
-                                <span th:case="'C'" class="rating-c">C</span>
-                                <span th:case="'D'" class="rating-d">D</span>
-                            </span>
-                        </div>
-                        <div th:if="${trends == null or trends.isEmpty() or trends[0].adminRating == null}">
-                            <p style="color: #999;">管理者評価がまだありません</p>
-                        </div>
-                    </div>
-                </div>
-                <div th:if="${selfEvaluation != null and trends != null and !trends.isEmpty() and trends[0].adminRating != null and selfEvaluation.rating != trends[0].adminRating}">
-                    <div class="difference-badge">
-                        評価に差分があります: <span th:text="${selfEvaluation.rating + ' → ' + trends[0].adminRating}"></span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 自己評価入力フォーム -->
-            <section class="card">
-                <h2>✍️ 自己評価を入力</h2>
-                <form th:action="@{/evaluation/self}" method="post">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                    <input type="hidden" name="yearMonth" th:value="${currentMonth.toString()}">
-                    
-                    <div class="form-group">
-                        <label>評価:</label>
-                        <div class="rating-buttons" style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button type="button" class="rating-btn rating-s" data-rating="S">S</button>
-                            <button type="button" class="rating-btn rating-a" data-rating="A">A</button>
-                            <button type="button" class="rating-btn rating-b" data-rating="B">B</button>
-                            <button type="button" class="rating-btn rating-c" data-rating="C">C</button>
-                            <button type="button" class="rating-btn rating-d" data-rating="D">D</button>
-                        </div>
-                        <input type="hidden" id="rating" name="rating" th:value="${selfEvaluation != null ? selfEvaluation.rating : 'B'}">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="comment">コメント:</label>
-                        <textarea id="comment" name="comment" class="form-control" rows="4" th:text="${selfEvaluation != null and selfEvaluation.comment != null ? selfEvaluation.comment : ''}"></textarea>
-                    </div>
-                    
-                    <button type="submit" class="btn-primary">保存</button>
-                </form>
+                <h2>📋 評価について</h2>
+                <p style="color: #666; line-height: 1.6;">
+                    評価は以下の客観的な指標に基づいて自動計算されます：<br>
+                    • <strong>遅刻回数</strong>: 始業時間より遅れて出勤した回数<br>
+                    • <strong>申請遵守率</strong>: 修正依頼の承認率<br>
+                    • <strong>打刻修正回数</strong>: 打刻の修正を申請した回数<br>
+                    • <strong>連続勤務日数</strong>: 連続して出勤した日数<br>
+                    • <strong>残業申請の正確性</strong>: 残業時間が適切に記録されているかの正確性<br><br>
+                    これらの指標から総合スコアが自動計算され、月次で評価されます。
+                </p>
             </section>
         </div>
     </div>

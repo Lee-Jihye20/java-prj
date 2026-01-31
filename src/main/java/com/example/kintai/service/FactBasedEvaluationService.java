@@ -30,6 +30,12 @@ public class FactBasedEvaluationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private BreakRecordService breakRecordService;
+
+    @Autowired
+    private LeaveRecordService leaveRecordService;
+
     /**
      * 月別の事実ベース評価を計算・保存
      */
@@ -172,7 +178,7 @@ public class FactBasedEvaluationService {
 
     /**
      * 残業申請の正確性を計算（残業時間の申請と実際の比較）
-     * 簡易版：残業時間が適切に記録されているかを確認
+     * 休憩時間を正確に計算
      */
     private BigDecimal calculateOvertimeAccuracy(List<Attendance> attendances, User employee) {
         if (attendances.isEmpty()) {
@@ -187,10 +193,16 @@ public class FactBasedEvaluationService {
             if (attendance.getCheckIn() != null && attendance.getCheckOut() != null) {
                 totalDays++;
                 long minutes = java.time.Duration.between(attendance.getCheckIn(), attendance.getCheckOut()).toMinutes();
+                
+                // 休憩時間を正確に計算
+                long breakMinutes = breakRecordService.getTotalBreakMinutesFromRecordsOnly(attendance);
+                minutes -= breakMinutes;
+                
+                // 中抜け時間（控除）を計算
+                long leaveMinutes = leaveRecordService.getTotalDeductionLeaveMinutes(attendance.getId());
+                minutes -= leaveMinutes;
+                
                 double hours = minutes / 60.0;
-
-                // 休憩時間を考慮（簡易版：1時間と仮定）
-                hours -= 1.0;
 
                 if (hours > 8.0) {
                     // 残業がある場合、適切に記録されているか確認
@@ -239,4 +251,20 @@ public class FactBasedEvaluationService {
 
         return total.divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP);
     }
+
+    /**
+     * 企業内の全従業員の月別評価を計算・保存
+     */
+    @Transactional
+    public void calculateAndSaveAllEmployeesMonthlyEvaluation(Long companyId, YearMonth yearMonth) {
+        List<User> employees = userRepository.findAllByCompanyId(companyId);
+        for (User employee : employees) {
+            // 管理者は除外
+            if ("ADMIN".equals(employee.getRole())) {
+                continue;
+            }
+            calculateAndSaveMonthlyEvaluation(employee.getId(), yearMonth);
+        }
+    }
+
 }

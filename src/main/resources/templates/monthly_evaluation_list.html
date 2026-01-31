@@ -102,67 +102,56 @@
                     </select>
                     <span style="font-weight: 600;" th:text="${#temporals.format(selectedYearMonth.atDay(1), 'yyyy年MM月')}"></span>
                 </div>
-
-                <div th:if="${summaries.isEmpty()}">
-                    <p style="color: #999; padding: 20px;">この月の評価データはありません</p>
+                <!-- 検索フォーム -->
+                <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+                    <form method="get" th:action="@{/admin/evaluations/monthly}" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="hidden" name="yearMonth" th:value="${selectedYearMonthStr}">
+                        <label for="searchInput" style="font-weight: 600; white-space: nowrap;">名前で検索:</label>
+                        <input type="text" 
+                               id="searchInput" 
+                               name="search" 
+                               th:value="${search}"
+                               placeholder="社員名を入力..."
+                               style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <button type="submit" class="btn-primary" style="padding: 8px 20px;">検索</button>
+                        <a th:if="${search != null and !search.isEmpty()}" 
+                           th:href="@{/admin/evaluations/monthly(yearMonth=${selectedYearMonthStr})}" 
+                           class="btn-secondary" 
+                           style="padding: 8px 20px;">クリア</a>
+                    </form>
                 </div>
 
-                <table th:if="${!summaries.isEmpty()}" class="evaluation-summary-table">
+                <div th:if="${evaluations == null or evaluations.isEmpty()}">
+                    <p style="color: #999; padding: 20px;">この月の評価データはありません。評価は自動計算されます。</p>
+                </div>
+
+                <table th:if="${evaluations != null and !evaluations.isEmpty()}" class="evaluation-summary-table">
                     <thead>
                         <tr>
                             <th>従業員名</th>
-                            <th>平均評価</th>
-                            <th>評価数</th>
-                            <th>週別評価詳細</th>
+                            <th>総合スコア</th>
+                            <th>遅刻回数</th>
+                            <th>申請遵守率</th>
+                            <th>打刻修正回数</th>
+                            <th>連続勤務日数</th>
+                            <th>残業申請の正確性</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="summary : ${summaries}">
+                        <tr th:each="eval : ${evaluations}">
                             <td>
-                                <strong th:text="${summary.employeeName}"></strong>
+                                <strong th:text="${eval.employee.username}"></strong>
                             </td>
                             <td>
-                                <span th:switch="${summary.averageRatingLabel}" class="rating-badge">
-                                    <span th:case="'S'" class="rating-s">S</span>
-                                    <span th:case="'A'" class="rating-a">A</span>
-                                    <span th:case="'B'" class="rating-b">B</span>
-                                    <span th:case="'C'" class="rating-c">C</span>
-                                    <span th:case="'D'" class="rating-d">D</span>
-                                    <span th:case="*" class="rating-none">-</span>
+                                <span class="rating-badge" style="background-color: #667eea; color: white;">
+                                    <span th:text="${#numbers.formatDecimal(eval.totalScore, 1, 1)}"></span>
                                 </span>
-                                <span th:if="${summary.evaluationCount > 0}" 
-                                      style="margin-left: 10px; color: #666; font-size: 0.9em;"
-                                      th:text="'(' + ${#numbers.formatDecimal(summary.averageRating, 1, 2)} + ')'"></span>
                             </td>
-                            <td>
-                                <span class="evaluation-count" th:text="${summary.evaluationCount} + '件'"></span>
-                            </td>
-                            <td>
-                                <div class="week-details" th:if="${summary.weeklyEvaluations != null and !summary.weeklyEvaluations.isEmpty()}">
-                                    <div th:each="weekly : ${summary.weeklyEvaluations}" class="week-detail-item">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-size: 0.9em;">
-                                                <span th:text="${#temporals.format(weekly.weekStartDate, 'MM/dd') + ' ～ ' + #temporals.format(weekly.weekEndDate, 'MM/dd')}"></span>
-                                                <span th:if="${weekly.comment != null and !weekly.comment.isEmpty()}" 
-                                                      style="margin-left: 10px; color: #666;"
-                                                      th:text="${'(' + weekly.comment + ')'}"></span>
-                                            </span>
-                                            <span th:switch="${weekly.rating}" class="rating-badge" style="margin-left: 10px;">
-                                                <span th:case="'S'" class="rating-s">S</span>
-                                                <span th:case="'A'" class="rating-a">A</span>
-                                                <span th:case="'B'" class="rating-b">B</span>
-                                                <span th:case="'C'" class="rating-c">C</span>
-                                                <span th:case="'D'" class="rating-d">D</span>
-                                            </span>
-                                        </div>
-                                        <div style="font-size: 0.85em; color: #999; margin-top: 3px;">
-                                            評価者: <span th:text="${weekly.evaluatorName}"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <span th:if="${summary.weeklyEvaluations == null or summary.weeklyEvaluations.isEmpty()}" 
-                                      style="color: #999;">評価なし</span>
-                            </td>
+                            <td th:text="${eval.lateCount}">0</td>
+                            <td th:text="${#numbers.formatDecimal(eval.applicationComplianceRate, 1, 1) + '%'}">0%</td>
+                            <td th:text="${eval.fixRequestCount}">0</td>
+                            <td th:text="${eval.consecutiveWorkDays}">0</td>
+                            <td th:text="${#numbers.formatDecimal(eval.overtimeAccuracy, 1, 1) + '%'}">0%</td>
                         </tr>
                     </tbody>
                 </table>
@@ -173,11 +162,18 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const yearMonthSelect = document.getElementById('yearMonthSelect');
+            const searchInput = document.getElementById('searchInput');
+            
             if (yearMonthSelect) {
                 yearMonthSelect.addEventListener('change', function() {
                     const selectedYearMonth = this.value;
+                    const searchValue = searchInput ? searchInput.value : '';
                     if (selectedYearMonth) {
-                        window.location.href = '/admin/evaluations/monthly?yearMonth=' + encodeURIComponent(selectedYearMonth);
+                        let url = '/admin/evaluations/monthly?yearMonth=' + encodeURIComponent(selectedYearMonth);
+                        if (searchValue) {
+                            url += '&search=' + encodeURIComponent(searchValue);
+                        }
+                        window.location.href = url;
                     }
                 });
             }

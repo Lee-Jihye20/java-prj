@@ -1,7 +1,5 @@
 -- 既存のテーブルを削除
-DROP TABLE IF EXISTS self_evaluation CASCADE;
 DROP TABLE IF EXISTS fact_based_evaluation CASCADE;
-DROP TABLE IF EXISTS weekly_evaluation CASCADE;
 DROP TABLE IF EXISTS user_role CASCADE;
 DROP TABLE IF EXISTS role_permission CASCADE;
 DROP TABLE IF EXISTS permissions CASCADE;
@@ -133,8 +131,9 @@ CREATE TABLE fix_request (
     id SERIAL PRIMARY KEY,
     attendance_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('CHECK_IN', 'CHECK_OUT', 'BREAK_START', 'BREAK_END', 'LEAVE_START', 'LEAVE_END', 'LEAVE_TYPE')),
+    request_type VARCHAR(20) NOT NULL CHECK (request_type IN ('CHECK_IN', 'CHECK_OUT', 'BREAK_START', 'BREAK_END', 'LEAVE_START', 'LEAVE_END', 'LEAVE_TYPE', 'OVERTIME_APPLICATION', 'CHECK_IN_AND_OUT', 'BREAK_START_AND_END')),
     new_value TIMESTAMP,
+    new_value_2 TIMESTAMP,
     leave_record_id INTEGER,
     new_leave_type VARCHAR(20),
     reason TEXT NOT NULL,
@@ -176,22 +175,6 @@ CREATE TABLE admin_action_log (
     FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 週次評価テーブル
-CREATE TABLE weekly_evaluation (
-    id SERIAL PRIMARY KEY,
-    employee_id INTEGER NOT NULL,
-    evaluator_id INTEGER NOT NULL,
-    week_start_date DATE NOT NULL,
-    week_end_date DATE NOT NULL,
-    rating VARCHAR(10) NOT NULL CHECK (rating IN ('S', 'A', 'B', 'C', 'D')),
-    comment TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (employee_id, evaluator_id, week_start_date),
-    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (evaluator_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 -- 事実ベース評価テーブル（月別の評価スコア）
 CREATE TABLE fact_based_evaluation (
     id SERIAL PRIMARY KEY,
@@ -209,15 +192,3 @@ CREATE TABLE fact_based_evaluation (
     FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 自己評価テーブル
-CREATE TABLE self_evaluation (
-    id SERIAL PRIMARY KEY,
-    employee_id INTEGER NOT NULL,
-    year_month DATE NOT NULL, -- 年月（月初日）
-    rating VARCHAR(10) NOT NULL CHECK (rating IN ('S', 'A', 'B', 'C', 'D')),
-    comment TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (employee_id, year_month),
-    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE
-);

@@ -415,6 +415,113 @@
                 </div>
             </section>
 
+            <!-- 管理者ログエクスポート -->
+            <section class="export-section card">
+                <h3>管理者ログエクスポート</h3>
+                <form class="export-form" method="get" th:action="@{/export/admin-log}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adminLogAdminId">管理者:</label>
+                            <div class="searchable-select" id="adminLogAdminSelect">
+                                <input type="hidden" name="adminId" id="adminLogAdminId" required>
+                                <div class="selected-value" id="adminLogAdminDisplay">選択してください</div>
+                                <div class="dropdown" id="adminLogAdminDropdown">
+                                    <div class="dropdown-item" data-value="" data-text="選択してください">選択してください</div>
+                                    <div th:each="admin : ${adminUsers}" 
+                                         class="dropdown-item" 
+                                         th:data-value="${admin.id}" 
+                                         th:data-text="${admin.username}"
+                                         th:text="${admin.username}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>開始日:</label>
+                            <div class="year-month-display" id="adminLogStartYearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${#temporals.year(oneMonthAgo)} + '年' + ${#temporals.month(oneMonthAgo)} + '月'">2024年1月</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleAdminLogStartYearMonthBtn">
+                                開始日を変更
+                            </button>
+                            <div class="year-month-selector" id="adminLogStartYearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="adminLogStartYearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 class="year-item"
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == #temporals.year(oneMonthAgo) ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="adminLogStartMonthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == #temporals.month(oneMonthAgo) ? 'selected' : ''}"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="adminLogStartYear" th:value="${#temporals.year(oneMonthAgo)}">
+                            <input type="hidden" id="adminLogStartMonth" th:value="${#temporals.month(oneMonthAgo)}">
+                            <input type="hidden" id="adminLogStartDate" name="startDate" th:value="${#temporals.format(oneMonthAgo, 'yyyy-MM-dd')}" required>
+                        </div>
+                        <div class="form-group" style="min-width: 100%;">
+                            <label>終了日:</label>
+                            <div class="year-month-display" id="adminLogEndYearMonthDisplay" style="margin-bottom: 10px;">
+                                <span th:text="${currentYear} + '年' + ${currentMonth} + '月'">2024年1月</span>
+                            </div>
+                            <button type="button" class="toggle-year-month-btn" id="toggleAdminLogEndYearMonthBtn">
+                                終了日を変更
+                            </button>
+                            <div class="year-month-selector" id="adminLogEndYearMonthSelector">
+                                <div class="year-month-selector-content">
+                                    <div class="year-selector">
+                                        <h4>年度</h4>
+                                        <div class="year-grid" id="adminLogEndYearGrid">
+                                            <div th:each="year : ${years}" 
+                                                 th:data-year="${year}"
+                                                 th:class="${'year-item' + (year == currentYear ? ' selected' : '') + (year > currentYear ? ' disabled' : '')}"
+                                                 th:text="${year}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="month-selector">
+                                        <h4>月</h4>
+                                        <div class="month-grid" id="adminLogEndMonthGrid">
+                                            <div th:each="month : ${months}" 
+                                                 class="month-item"
+                                                 th:data-month="${month}"
+                                                 th:classappend="${month == currentMonth ? 'selected' : ''}"
+                                                 th:text="${month} + '月'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="adminLogEndYear" th:value="${currentYear}">
+                            <input type="hidden" id="adminLogEndMonth" th:value="${currentMonth}">
+                            <input type="hidden" id="adminLogEndDate" name="endDate" th:value="${#temporals.format(today, 'yyyy-MM-dd')}" required>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="export-button">エクスポート</button>
+                        </div>
+                    </div>
+                </form>
+                <div class="info-text">
+                    <strong>出力内容:</strong> 管理者の操作ログ（日時、アクション種別、対象種別、対象ID、詳細）<br>
+                    <strong>注意:</strong> 管理者ロールを持つユーザーのみ選択可能です
+                </div>
+            </section>
+
             <!-- 打刻ログエクスポート -->
             <section class="export-section card">
                 <h3>打刻ログエクスポート（証跡用）</h3>
@@ -883,7 +990,11 @@
                     toggleBtn.textContent = '閉じる';
                 } else {
                     yearMonthSelector.classList.remove('expanded');
-                    toggleBtn.textContent = (prefix === 'logStart' ? '開始' : '終了') + '年月を変更';
+                    if (prefix === 'logStart' || prefix === 'adminLogStart') {
+                        toggleBtn.textContent = '開始' + (prefix === 'adminLogStart' ? '日' : '年月') + 'を変更';
+                    } else {
+                        toggleBtn.textContent = '終了' + (prefix === 'adminLogEnd' ? '日' : '年月') + 'を変更';
+                    }
                 }
             });
             
@@ -917,7 +1028,7 @@
             function updateDateInput() {
                 // 開始日は月初、終了日は月末
                 let dateStr;
-                if (prefix === 'logStart') {
+                if (prefix === 'logStart' || prefix === 'adminLogStart') {
                     dateStr = selectedYear + '-' + String(selectedMonth).padStart(2, '0') + '-01';
                 } else {
                     const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
@@ -943,6 +1054,12 @@
                 initSearchableSelect('monthlyUserSelect', 'monthlyUserDisplay', 'monthlyUserDropdown', 'monthlyUserId');
             } catch (e) {
                 console.error('月次集計ユーザー選択の初期化エラー:', e);
+            }
+            
+            try {
+                initSearchableSelect('adminLogAdminSelect', 'adminLogAdminDisplay', 'adminLogAdminDropdown', 'adminLogAdminId');
+            } catch (e) {
+                console.error('管理者ログ管理者選択の初期化エラー:', e);
             }
             
             try {
@@ -985,6 +1102,36 @@
                 }
             } catch (e) {
                 console.error('打刻ログ終了年月選択の初期化エラー:', e);
+            }
+            
+            try {
+                // 管理者ログエクスポートの開始日
+                const adminLogStartYearInput = document.getElementById('adminLogStartYear');
+                const adminLogStartMonthInput = document.getElementById('adminLogStartMonth');
+                if (adminLogStartYearInput && adminLogStartMonthInput) {
+                    const adminLogStartYear = parseInt(adminLogStartYearInput.value);
+                    const adminLogStartMonth = parseInt(adminLogStartMonthInput.value);
+                    initLogYearMonthSelector('adminLogStart', 'adminLogStartYearGrid', 'adminLogStartMonthGrid', 
+                        'adminLogStartYearMonthDisplay', 'adminLogStartYearMonthSelector', 'toggleAdminLogStartYearMonthBtn',
+                        'adminLogStartYear', 'adminLogStartMonth', 'adminLogStartDate', adminLogStartYear, adminLogStartMonth);
+                }
+            } catch (e) {
+                console.error('管理者ログ開始日選択の初期化エラー:', e);
+            }
+            
+            try {
+                // 管理者ログエクスポートの終了日
+                const adminLogEndYearInput = document.getElementById('adminLogEndYear');
+                const adminLogEndMonthInput = document.getElementById('adminLogEndMonth');
+                if (adminLogEndYearInput && adminLogEndMonthInput) {
+                    const adminLogEndYear = parseInt(adminLogEndYearInput.value);
+                    const adminLogEndMonth = parseInt(adminLogEndMonthInput.value);
+                    initLogYearMonthSelector('adminLogEnd', 'adminLogEndYearGrid', 'adminLogEndMonthGrid', 
+                        'adminLogEndYearMonthDisplay', 'adminLogEndYearMonthSelector', 'toggleAdminLogEndYearMonthBtn',
+                        'adminLogEndYear', 'adminLogEndMonth', 'adminLogEndDate', adminLogEndYear, adminLogEndMonth);
+                }
+            } catch (e) {
+                console.error('管理者ログ終了日選択の初期化エラー:', e);
             }
         }
     </script>
