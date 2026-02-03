@@ -35,3 +35,6 @@ logs/
 application-local.properties
 application-local.yml
 *.env
+
+# Data files
+src/main/resources/data.sql
